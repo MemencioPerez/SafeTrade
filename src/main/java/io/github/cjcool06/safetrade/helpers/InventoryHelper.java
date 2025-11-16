@@ -71,7 +71,7 @@ public class InventoryHelper {
             // If the side is paused, it means that they are reconnecting to the trade.
             // If the side is not paused, it means they have been transferred from another trade-related inventory and is not considered as a trade connection
             if (side.isPaused()) {
-                if (BukkitEventManagerUtils.post(new ConnectionPreJoinEvent(side))) {
+                if (BukkitEventManagerUtil.post(new ConnectionPreJoinEvent(side))) {
                     event.setCancelled(true);
                     return;
                 }
@@ -87,7 +87,7 @@ public class InventoryHelper {
         // Adds them to the trade's viewers.
         // This will happen if the player doesn't come through Trade#addViewer
         else if (!trade.getViewers().contains(player)) {
-            if (BukkitEventManagerUtils.post(new ViewerEvent.Add.Pre(trade, player))) {
+            if (BukkitEventManagerUtil.post(new ViewerEvent.Add.Pre(trade, player))) {
                 event.setCancelled(true);
                 return;
             }

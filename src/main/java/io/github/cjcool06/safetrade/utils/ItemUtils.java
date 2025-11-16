@@ -23,9 +23,13 @@ import java.util.Locale;
 
 import static net.md_5.bungee.api.chat.BaseComponent.toLegacyText;
 
-public class ItemUtils {
+public final class ItemUtils {
 
-    public static class Main {
+    private ItemUtils() {}
+
+    public static final class Main {
+
+        private Main() {}
 
         public static ItemStack getStateStatus(Side side) {
             ItemStack item = new ItemStack(Material.LEGACY_STAINED_GLASS_PANE, 1);
@@ -139,7 +143,9 @@ public class ItemUtils {
         }
     }
 
-    public static class Money {
+    public static final class Money {
+
+        private Money() {}
 
         public static ItemStack changeCurrency() {
             ItemStack item = new ItemStack(Material.IRON_BLOCK, 1);
@@ -205,7 +211,9 @@ public class ItemUtils {
         }
     }
 
-    public static class Pokemon {
+    public static final class Pokemon {
+
+        private Pokemon() {}
 
         public static ItemStack getPC() {
             ItemStack item = new ItemStack(Material.valueOf("PIXELMON_PC"), 1);
@@ -232,7 +240,9 @@ public class ItemUtils {
         }
     }
 
-    public static class PC {
+    public static final class PC {
+
+        private PC() {}
 
         public static ItemStack getPartyInfo() {
             ItemStack item = new ItemStack(Material.PAPER, 1);
@@ -261,7 +271,9 @@ public class ItemUtils {
         }
     }
 
-    public static class Overview {
+    public static final class Overview {
+
+        private Overview() {}
 
         public static ItemStack getConfirmationStatus(Side side) {
             ItemStack item = new ItemStack(Material.LEGACY_STAINED_GLASS_PANE, 1);
@@ -316,7 +328,9 @@ public class ItemUtils {
     }
 
     // Yeah yeah, I know this shit is kinda redundant
-    public static class Logs {
+    public static final class Logs {
+
+        private Logs() {}
 
         public static ItemStack getMoney(OfflinePlayer user) {
             ItemStack item = new ItemStack(Material.GOLD_BLOCK, 1);
@@ -357,7 +371,9 @@ public class ItemUtils {
         }
     }
 
-    public static class Storage {
+    public static final class Storage {
+
+        private Storage() {}
 
         public static ItemStack getMoney(PlayerStorage storage) {
             ItemStack item = new ItemStack(Material.CHEST, 1);
@@ -407,7 +423,9 @@ public class ItemUtils {
         }
     }
 
-    public static class Other {
+    public static final class Other {
+
+        private Other() {}
 
         public static ItemStack getBackButton() {
             ItemStack itemStack = new ItemStack(Material.RED_DYE, 1);

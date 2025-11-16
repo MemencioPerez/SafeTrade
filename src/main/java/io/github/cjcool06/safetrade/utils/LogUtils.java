@@ -21,7 +21,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-public class LogUtils {
+public final class LogUtils {
+
+    private LogUtils() {}
 
     /**
      * Saves the {@link Log} of a {@link Trade} to the participants' log files.

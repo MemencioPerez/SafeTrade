@@ -6,7 +6,7 @@ import io.github.cjcool06.safetrade.api.enums.InventoryType;
 import io.github.cjcool06.safetrade.api.enums.PrefixType;
 import io.github.cjcool06.safetrade.api.events.trade.inventory.InventoryPreChangeEvent;
 import io.github.cjcool06.safetrade.helpers.InventoryHelper;
-import io.github.cjcool06.safetrade.utils.BukkitEventManagerUtils;
+import io.github.cjcool06.safetrade.utils.BukkitEventManagerUtil;
 import io.github.cjcool06.safetrade.utils.Utils;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -125,7 +125,7 @@ public class Side {
      * @param inventoryType The new inventory
      */
     public void changeInventory(InventoryType inventoryType) {
-        if (BukkitEventManagerUtils.post(new InventoryPreChangeEvent(this, inventoryType))) {
+        if (BukkitEventManagerUtil.post(new InventoryPreChangeEvent(this, inventoryType))) {
             return;
         }
         if (getPlayer().isPresent()) {

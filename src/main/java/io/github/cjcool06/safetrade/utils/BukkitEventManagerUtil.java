@@ -4,11 +4,9 @@ import org.bukkit.Bukkit;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 
-public class BukkitEventManagerUtils {
+public final class BukkitEventManagerUtil {
 
-    private BukkitEventManagerUtils() {
-        throw new UnsupportedOperationException("Utility class");
-    }
+    private BukkitEventManagerUtil() {}
 
     public static <T extends Event & Cancellable> boolean post(T event) {
         Bukkit.getPluginManager().callEvent(event);

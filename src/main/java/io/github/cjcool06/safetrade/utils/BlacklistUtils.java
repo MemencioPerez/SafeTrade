@@ -7,6 +7,8 @@ import io.github.cjcool06.safetrade.economy.currency.Currency;
 
 public final class BlacklistUtils {
 
+    private BlacklistUtils() {}
+
     public static boolean isBlacklisted(Currency currency) {
         for (String currencyStr : Config.blacklistedCurrencies) {
             if (currency.getId().equalsIgnoreCase(currencyStr)) {
@@ -36,5 +38,4 @@ public final class BlacklistUtils {
 
         return false;
     }
-
 }

@@ -36,10 +36,12 @@ import java.util.*;
 
 import static net.md_5.bungee.api.chat.BaseComponent.toLegacyText;
 
-public class Utils {
+public final class Utils {
 
     public static final HasSpecFlagRequirement unbreedable = new HasSpecFlagRequirement("unbreedable");
     public static final HasSpecFlagRequirement untradeable = new HasSpecFlagRequirement("untradeable");
+
+    private Utils() {}
 
     public static Optional<OfflinePlayer> getOfflinePlayer(UUID uuid) {
         return Bukkit.getOfflinePlayer(uuid).hasPlayedBefore() ? Optional.of(Bukkit.getOfflinePlayer(uuid)) : Optional.empty();

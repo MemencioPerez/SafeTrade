@@ -12,7 +12,7 @@ import io.github.cjcool06.safetrade.api.events.trade.transaction.item.*;
 import io.github.cjcool06.safetrade.api.events.trade.transaction.pokemon.*;
 import io.github.cjcool06.safetrade.helpers.InventoryHelper;
 import io.github.cjcool06.safetrade.trackers.Tracker;
-import io.github.cjcool06.safetrade.utils.BukkitEventManagerUtils;
+import io.github.cjcool06.safetrade.utils.BukkitEventManagerUtil;
 import io.github.cjcool06.safetrade.utils.Text;
 import io.github.cjcool06.safetrade.utils.BlacklistUtils;
 import io.github.cjcool06.safetrade.utils.ItemUtils;
@@ -120,7 +120,7 @@ public class Vault {
      * @return True if the item was successfully added to the inventory, false if not
      */
     public boolean addItem(ItemStack item) {
-        if (BukkitEventManagerUtils.post(new ItemAddPreTransactionEvent(this, item))) {
+        if (BukkitEventManagerUtil.post(new ItemAddPreTransactionEvent(this, item))) {
             return false;
         }
         Iterator<Inventory> iter = itemStorage.slots().iterator();
@@ -155,7 +155,7 @@ public class Vault {
      * @return True if the item was successfully added to the inventory, false if not
      */
     public boolean addItem(int index, ItemStack item) {
-        if (BukkitEventManagerUtils.post(new ItemAddPreTransactionEvent(this, item))) {
+        if (BukkitEventManagerUtil.post(new ItemAddPreTransactionEvent(this, item))) {
             return false;
         }
         if (index >= 36) {
@@ -190,7 +190,7 @@ public class Vault {
      * @return True if the item was successfully removed from the inventory, false if not
      */
     public boolean removeItem(ItemStack item) {
-        if (BukkitEventManagerUtils.post(new ItemRemovePreTransactionEvent(this, item))) {
+        if (BukkitEventManagerUtil.post(new ItemRemovePreTransactionEvent(this, item))) {
             return false;
         }
         Iterator<Inventory> iter = itemStorage.slots().iterator();
@@ -231,7 +231,7 @@ public class Vault {
             if (slot.getProperty(SlotIndex.class, "slotindex").get().getValue() == index) {
                 if (slot.peek().isPresent()) {
                     ItemStack item = slot.peek().get();
-                    if (BukkitEventManagerUtils.post(new ItemRemovePreTransactionEvent(this, item))) {
+                    if (BukkitEventManagerUtil.post(new ItemRemovePreTransactionEvent(this, item))) {
                         return false;
                     }
                     else {
@@ -314,7 +314,7 @@ public class Vault {
      * @return True if the Pokemon was successfully added to the inventory, false if not
      */
     public boolean addPokemon(Pokemon pokemon) {
-        if (BukkitEventManagerUtils.post(new PokemonAddPreTransactionEvent(this, pokemon))) {
+        if (BukkitEventManagerUtil.post(new PokemonAddPreTransactionEvent(this, pokemon))) {
             return false;
         }
         ItemStack item = ItemUtils.Pokemon.getPokemonIcon(pokemon);
@@ -349,7 +349,7 @@ public class Vault {
      * @return True if the Pokemon was successfully added to the inventory, false if not
      */
     public boolean addPokemon(Pokemon pokemon, int index) {
-        if (BukkitEventManagerUtils.post(new PokemonAddPreTransactionEvent(this, pokemon))) {
+        if (BukkitEventManagerUtil.post(new PokemonAddPreTransactionEvent(this, pokemon))) {
             return false;
         }
         ItemStack item = ItemUtils.Pokemon.getPokemonIcon(pokemon);
@@ -400,7 +400,7 @@ public class Vault {
      * @return True if the Pokemon was successfully removed from the inventory, false if not
      */
     public boolean removePokemon(Pokemon pokemon) {
-        if (BukkitEventManagerUtils.post(new PokemonRemovePreTransactionEvent(this, pokemon))) {
+        if (BukkitEventManagerUtil.post(new PokemonRemovePreTransactionEvent(this, pokemon))) {
             return false;
         }
         ItemStack item = ItemUtils.Pokemon.getPokemonIcon(pokemon);
@@ -446,7 +446,7 @@ public class Vault {
             if (ind == index) {
                 if (slot.peek().isPresent() && entityStorage.containsKey(ind)) {
                     Pokemon pokemon = entityStorage.get(ind);
-                    if (BukkitEventManagerUtils.post(new PokemonRemovePreTransactionEvent(this, pokemon))) {
+                    if (BukkitEventManagerUtil.post(new PokemonRemovePreTransactionEvent(this, pokemon))) {
                         return false;
                     }
                     slot.poll();
@@ -456,7 +456,7 @@ public class Vault {
                 }
                 else if (entityStorage.containsKey(ind)) {
                     Pokemon pokemon = entityStorage.get(ind);
-                    if (BukkitEventManagerUtils.post(new PokemonRemovePreTransactionEvent(this, pokemon))) {
+                    if (BukkitEventManagerUtil.post(new PokemonRemovePreTransactionEvent(this, pokemon))) {
                         return false;
                     }
                     entityStorage.remove(ind);
@@ -661,7 +661,7 @@ public class Vault {
         else if (slot <= 35) {
             // If true, the player is attempting to remove an item from the vault's item storage
             if (itemStorage.contains(transaction.getOriginal().createStack())) {
-                if (BukkitEventManagerUtils.post(new ItemRemovePreTransactionEvent(side.vault, transaction.getOriginal().createStack()))) {
+                if (BukkitEventManagerUtil.post(new ItemRemovePreTransactionEvent(side.vault, transaction.getOriginal().createStack()))) {
                     event.setCancelled(true);
                 }
                 else {
@@ -671,7 +671,7 @@ public class Vault {
         }
         // Else, the player is attempting to add an item to the storage
         else {
-            if (BukkitEventManagerUtils.post(new ItemAddPreTransactionEvent(side.vault, transaction.getOriginal().createStack()))) {
+            if (BukkitEventManagerUtil.post(new ItemAddPreTransactionEvent(side.vault, transaction.getOriginal().createStack()))) {
                 event.setCancelled(true);
             }
             // Prevents players from adding blacklisted items to trade

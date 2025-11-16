@@ -10,9 +10,11 @@ import net.minecraft.nbt.StringNBT;
 import java.util.HashMap;
 import java.util.Map;
 
-public class GsonUtils {
+public final class GsonUtils {
     public static final Gson prettyGson = new GsonBuilder().setPrettyPrinting().create();
     public static final Gson uglyGson = new GsonBuilder().create();
+
+    private GsonUtils() {}
 
     public static String serialize(CompoundNBT nbt) {
         Map<String, Object> map = nbtToMap(nbt);

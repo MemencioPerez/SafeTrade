@@ -4,7 +4,9 @@ import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 
-public class Text {
+public final class Text {
+
+    private Text() {}
 
     public static BaseComponent[] of(Object... args) {
         ComponentBuilder builder = new ComponentBuilder();

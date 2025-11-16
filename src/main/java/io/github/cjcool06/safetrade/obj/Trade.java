@@ -11,7 +11,7 @@ import io.github.cjcool06.safetrade.api.events.trade.TradeEvent;
 import io.github.cjcool06.safetrade.channels.TradeChannel;
 import io.github.cjcool06.safetrade.helpers.InventoryHelper;
 import io.github.cjcool06.safetrade.trackers.Tracker;
-import io.github.cjcool06.safetrade.utils.BukkitEventManagerUtils;
+import io.github.cjcool06.safetrade.utils.BukkitEventManagerUtil;
 import io.github.cjcool06.safetrade.utils.ItemUtils;
 import io.github.cjcool06.safetrade.utils.LogUtils;
 import org.bukkit.Bukkit;
@@ -133,7 +133,7 @@ public class Trade {
      * Executes the trade.
      */
     public Result executeTrade() {
-        if (BukkitEventManagerUtils.post(new TradeEvent.Executing(this))) {
+        if (BukkitEventManagerUtil.post(new TradeEvent.Executing(this))) {
             return new Result(this, TradeResult.CANCELLED);
         }
 

@@ -1,36 +1,31 @@
 package io.github.cjcool06.safetrade.utils;
 
-import com.pixelmonmod.pixelmon.Pixelmon;
+import com.pixelmonmod.api.pokemon.requirement.impl.HasSpecFlagRequirement;
 import com.pixelmonmod.pixelmon.api.pokemon.Pokemon;
-import com.pixelmonmod.pixelmon.api.pokemon.PokemonSpec;
+import com.pixelmonmod.pixelmon.api.pokemon.stats.BattleStatsType;
 import com.pixelmonmod.pixelmon.api.storage.PCStorage;
+import com.pixelmonmod.pixelmon.api.storage.StorageProxy;
 import com.pixelmonmod.pixelmon.battles.BattleRegistry;
-import com.pixelmonmod.pixelmon.battles.controller.BattleControllerBase;
-import com.pixelmonmod.pixelmon.config.PixelmonItems;
-import com.pixelmonmod.pixelmon.entities.pixelmon.EntityPixelmon;
-import com.pixelmonmod.pixelmon.items.ItemPixelmonSprite;
-import com.pixelmonmod.pixelmon.storage.PlayerPartyStorage;
+import com.pixelmonmod.pixelmon.battles.controller.BattleController;
+import com.pixelmonmod.pixelmon.entities.pixelmon.PixelmonEntity;
+import com.pixelmonmod.pixelmon.api.storage.PlayerPartyStorage;
+import de.tr7zw.nbtapi.NBT;
 import io.github.cjcool06.safetrade.config.Config;
 import io.github.cjcool06.safetrade.obj.MoneyWrapper;
 import io.github.cjcool06.safetrade.obj.Side;
 import io.github.cjcool06.safetrade.obj.Trade;
-import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.nbt.NBTTagCompound;
-import org.spongepowered.api.Sponge;
-import org.spongepowered.api.data.key.Keys;
-import org.spongepowered.api.entity.living.player.Player;
-import org.spongepowered.api.entity.living.player.User;
-import org.spongepowered.api.item.inventory.Inventory;
-import org.spongepowered.api.item.inventory.InventoryTransformations;
-import org.spongepowered.api.item.inventory.ItemStack;
-import org.spongepowered.api.item.inventory.ItemStackSnapshot;
-import org.spongepowered.api.item.inventory.entity.PlayerInventory;
-import org.spongepowered.api.item.inventory.transaction.InventoryTransactionResult;
-import org.spongepowered.api.service.user.UserStorageService;
-import org.spongepowered.api.text.Text;
-import org.spongepowered.api.text.action.TextActions;
-import org.spongepowered.api.text.format.TextColors;
-import org.spongepowered.api.text.format.TextStyles;
+import net.md_5.bungee.api.chat.ComponentBuilder;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraftforge.fml.server.ServerLifecycleHooks;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import de.tr7zw.nbtapi.iface.ReadWriteNBT;
+import net.md_5.bungee.api.chat.BaseComponent;
+import net.md_5.bungee.api.ChatColor;
 
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
@@ -39,139 +34,141 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.*;
 
+import static net.md_5.bungee.api.chat.BaseComponent.toLegacyText;
+
 public class Utils {
 
-    public static final PokemonSpec unbreedable = new PokemonSpec("unbreedable");
-    public static final PokemonSpec untradeable = new PokemonSpec("untradeable");
+    public static final HasSpecFlagRequirement unbreedable = new HasSpecFlagRequirement("unbreedable");
+    public static final HasSpecFlagRequirement untradeable = new HasSpecFlagRequirement("untradeable");
 
-    public static Optional<User> getUser(UUID uuid) {
-        return Sponge.getServiceManager().provide(UserStorageService.class).get().get(uuid);
+    public static Optional<OfflinePlayer> getOfflinePlayer(UUID uuid) {
+        return Bukkit.getOfflinePlayer(uuid).hasPlayedBefore() ? Optional.of(Bukkit.getOfflinePlayer(uuid)) : Optional.empty();
     }
 
     public static ItemStack getPicture(Pokemon pokemon) {
         if (pokemon.isEgg()) {
             net.minecraft.item.ItemStack itemStack = new net.minecraft.item.ItemStack(PixelmonItems.itemPixelmonSprite);
-            NBTTagCompound nbt = new NBTTagCompound();
-            nbt.setString("SpriteName", "pixelmon:sprites/eggs/egg1");
-            itemStack.setTagCompound(nbt);
+            CompoundNBT nbt = new CompoundNBT();
+            nbt.putString("SpriteName", "pixelmon:sprites/eggs/egg1");
+            itemStack.setTag(nbt);
             return (ItemStack)(Object)itemStack;
         }
 
         return (ItemStack)(Object)ItemPixelmonSprite.getPhoto(pokemon);
     }
 
-    public static Text[] getTradeOverviewLore(Trade trade) {
-        Text.Builder builder1 =  Text.builder();
-        Text.Builder builder2 = Text.builder();
+    public static BaseComponent[] getTradeOverviewLore(Trade trade) {
+        ComponentBuilder builder1 =  Text.builder();
+        ComponentBuilder builder2 = Text.builder();
 
         builder1.append(Text.of("Money:"))
-                .color(TextColors.DARK_AQUA)
-                .build();
+                .color(ChatColor.DARK_AQUA)
+                .create();
         builder2.append(Text.of("Money:"))
-                .color(TextColors.DARK_AQUA)
-                .build();
+                .color(ChatColor.DARK_AQUA)
+                .create();
 
         for (MoneyWrapper wrapper : trade.getSides()[0].vault.getAllMoney()) {
-            builder1.append(Text.of("\n", TextColors.GREEN, "- ", TextColors.GOLD, wrapper.getCurrency().getSymbol(), TextColors.AQUA, NumberFormat.getNumberInstance(Locale.US).format(wrapper.getBalance().intValue())));
+            builder1.append(Text.of("\n", ChatColor.GREEN, "- ", ChatColor.GOLD, wrapper.getCurrency().getSymbol(), ChatColor.AQUA, NumberFormat.getNumberInstance(Locale.US).format(wrapper.getBalance().intValue())));
         }
         for (MoneyWrapper wrapper : trade.getSides()[1].vault.getAllMoney()) {
-            builder2.append(Text.of("\n", TextColors.GREEN, "- ", TextColors.GOLD, wrapper.getCurrency().getSymbol(), TextColors.AQUA, NumberFormat.getNumberInstance(Locale.US).format(wrapper.getBalance().intValue())));
+            builder2.append(Text.of("\n", ChatColor.GREEN, "- ", ChatColor.GOLD, wrapper.getCurrency().getSymbol(), ChatColor.AQUA, NumberFormat.getNumberInstance(Locale.US).format(wrapper.getBalance().intValue())));
         }
 
         builder1.append(Text.of("\n\n" + "Pokemon:"))
-                .color(TextColors.DARK_AQUA)
-                .build();
+                .color(ChatColor.DARK_AQUA)
+                .create();
         builder2.append(Text.of("\n\n" + "Pokemon:"))
-                .color(TextColors.DARK_AQUA)
-                .build();
+                .color(ChatColor.DARK_AQUA)
+                .create();
         for (Pokemon pokemon : trade.getSides()[0].vault.getAllPokemon()) {
             if (pokemon.isEgg()) {
-                builder1.append(Text.builder().append(Text.of("\n", TextColors.GREEN, "- ", TextColors.AQUA, (Config.showEggName ? pokemon.getSpecies().getLocalizedName() + " Egg" : "Egg"))).build()).build();
+                builder1.append(Text.builder().append(Text.of("\n", ChatColor.GREEN, "- ", ChatColor.AQUA, (Config.showEggName ? pokemon.getSpecies().getLocalizedName() + " Egg" : "Egg"))).create()).create();
             }
             else {
-                builder1.append(Text.builder().append(Text.of("\n", TextColors.GREEN, "- ", TextColors.AQUA, pokemon.getSpecies().getLocalizedName())).build()).build();
+                builder1.append(Text.builder().append(Text.of("\n", ChatColor.GREEN, "- ", ChatColor.AQUA, pokemon.getSpecies().getLocalizedName())).create()).create();
             }
         }
         for (Pokemon pokemon : trade.getSides()[1].vault.getAllPokemon()) {
             if (pokemon.isEgg()) {
-                builder2.append(Text.builder().append(Text.of("\n", TextColors.GREEN, "- ", TextColors.AQUA, (Config.showEggName ? pokemon.getSpecies().getLocalizedName() + " Egg" : "Egg"))).build()).build();
+                builder2.append(Text.builder().append(Text.of("\n", ChatColor.GREEN, "- ", ChatColor.AQUA, (Config.showEggName ? pokemon.getSpecies().getLocalizedName() + " Egg" : "Egg"))).create()).create();
             }
             else {
-                builder2.append(Text.builder().append(Text.of("\n", TextColors.GREEN, "- ", TextColors.AQUA, pokemon.getSpecies().getLocalizedName())).build()).build();
+                builder2.append(Text.builder().append(Text.of("\n", ChatColor.GREEN, "- ", ChatColor.AQUA, pokemon.getSpecies().getLocalizedName())).create()).create();
             }
         }
 
         builder1.append(Text.of("\n\n" + "Items:"))
-                .color(TextColors.DARK_AQUA)
-                .build();
+                .color(ChatColor.DARK_AQUA)
+                .create();
         builder2.append(Text.of("\n\n" + "Items:"))
-                .color(TextColors.DARK_AQUA)
-                .build();
-        for (ItemStackSnapshot snapshot : trade.getSides()[0].vault.getAllItems()) {
-            builder1.append(Text.builder().append(Text.of("\n", TextColors.GREEN, "- ", TextColors.DARK_GREEN, snapshot.getQuantity() + "x ", TextColors.AQUA, snapshot.getTranslation().get()))
-                    .build()).build();
+                .color(ChatColor.DARK_AQUA)
+                .create();
+        for (ReadWriteNBT snapshot : trade.getSides()[0].vault.getAllItems()) {
+            builder1.append(Text.builder().append(Text.of("\n", ChatColor.GREEN, "- ", ChatColor.DARK_GREEN, snapshot.getQuantity() + "x ", ChatColor.AQUA, snapshot.getTranslation().get()))
+                    .create()).create();
             if (snapshot.get(Keys.DISPLAY_NAME).isPresent()) {
-                builder1.append(Text.builder().append(Text.of("  ", TextColors.GOLD, "[", snapshot.get(Keys.DISPLAY_NAME).get(), TextColors.GOLD, "]")).build()).build();
+                builder1.append(Text.builder().append(Text.of("  ", ChatColor.GOLD, "[", snapshot.get(Keys.DISPLAY_NAME).get(), ChatColor.GOLD, "]")).create()).create();
             }
         }
-        for (ItemStackSnapshot snapshot : trade.getSides()[1].vault.getAllItems()) {
-            builder2.append(Text.builder().append(Text.of("\n", TextColors.GREEN, "- ", TextColors.DARK_GREEN, snapshot.getQuantity() + "x ", TextColors.AQUA, snapshot.getTranslation().get()))
-                    .build()).build();
+        for (ReadWriteNBT snapshot : trade.getSides()[1].vault.getAllItems()) {
+            builder2.append(Text.builder().append(Text.of("\n", ChatColor.GREEN, "- ", ChatColor.DARK_GREEN, snapshot.getQuantity() + "x ", ChatColor.AQUA, snapshot.getTranslation().get()))
+                    .create()).create();
             if (snapshot.get(Keys.DISPLAY_NAME).isPresent()) {
-                builder2.append(Text.builder().append(Text.of("  ", TextColors.GRAY, "[", TextColors.GOLD, snapshot.get(Keys.DISPLAY_NAME).get(), TextColors.GRAY, "]")).build()).build();
+                builder2.append(Text.builder().append(Text.of("  ", ChatColor.GRAY, "[", ChatColor.GOLD, snapshot.get(Keys.DISPLAY_NAME).get(), ChatColor.GRAY, "]")).create()).create();
             }
         }
 
-        return new Text[]{builder1.build(), builder2.build()};
+        return new BaseComponent[]{builder1.create(), builder2.create()};
     }
 
-    public static Text getSuccessMessage(Trade trade) {
-        Text[] texts = getTradeOverviewLore(trade);
+    public static BaseComponent[] getSuccessMessage(Trade trade) {
+        BaseComponent[] texts = getTradeOverviewLore(trade);
 
-        return Text.builder("SafeTrade Overview >> ")
-                .color(TextColors.GREEN)
-                .style(TextStyles.BOLD)
-                .append(Text.builder().append(Text.of(TextColors.DARK_AQUA, trade.getSides()[0].getUser().get().getName()))
-                        .onHover(TextActions.showText(texts[0]))
-                        .build())
-                .append(Text.builder().append(Text.of(TextColors.DARK_AQUA, " & "))
-                        .build())
-                .append(Text.builder().append(Text.of(TextColors.DARK_AQUA, trade.getSides()[1].getUser().get().getName()))
-                        .onHover(TextActions.showText(texts[1]))
-                        .build())
-                .build();
+        return BaseComponent.builder("SafeTrade Overview >> ")
+                .color(ChatColor.GREEN)
+                .style(ChatColor.BOLD)
+                .append(Text.builder().append(Text.of(ChatColor.DARK_AQUA, trade.getSides()[0].getOfflinePlayer().get().getName()))
+                        .onHover(BaseComponentActions.showBaseComponent(texts[0]))
+                        .create())
+                .append(Text.builder().append(Text.of(ChatColor.DARK_AQUA, " & "))
+                        .create())
+                .append(Text.builder().append(Text.of(ChatColor.DARK_AQUA, trade.getSides()[1].getOfflinePlayer().get().getName()))
+                        .onHover(BaseComponentActions.showBaseComponent(texts[1]))
+                        .create())
+                .create();
     }
 
-    public static Text getTradeOverview(Trade trade) {
-        Text[] texts = getTradeOverviewLore(trade);
+    public static BaseComponent[] getTradeOverview(Trade trade) {
+        BaseComponent[] texts = getTradeOverviewLore(trade);
 
         return Text.builder()
-                .append(Text.builder().append(Text.of(TextColors.DARK_AQUA, trade.getSides()[0].getUser().get().getName()))
-                        .onHover(TextActions.showText(texts[0]))
-                        .build())
-                .append(Text.builder().append(Text.of(TextColors.DARK_AQUA, " & "))
-                        .build())
-                .append(Text.builder().append(Text.of(TextColors.DARK_AQUA, trade.getSides()[1].getUser().get().getName()))
-                        .onHover(TextActions.showText(texts[1]))
-                        .build())
-                .build();
+                .append(Text.builder().append(Text.of(ChatColor.DARK_AQUA, trade.getSides()[0].getOfflinePlayer().get().getName()))
+                        .onHover(BaseComponentActions.showBaseComponent(texts[0]))
+                        .create())
+                .append(Text.builder().append(Text.of(ChatColor.DARK_AQUA, " & "))
+                        .create())
+                .append(Text.builder().append(Text.of(ChatColor.DARK_AQUA, trade.getSides()[1].getOfflinePlayer().get().getName()))
+                        .onHover(BaseComponentActions.showBaseComponent(texts[1]))
+                        .create())
+                .create();
     }
 
-    public static ArrayList<Text> getPokemonLore(Pokemon pokemon) {
-        ArrayList<Text> lore = new ArrayList<>();
+    public static ArrayList<String> getPokemonLore(Pokemon pokemon) {
+        ArrayList<String> lore = new ArrayList<>();
         if (pokemon.isEgg() && !Config.showEggStats) {
-            lore.add(Text.of(TextColors.GRAY, "The stats of this egg are a mystery."));
+            lore.add(toLegacyText(Text.of(ChatColor.GRAY, "The stats of this egg are a mystery.")));
             return lore;
         }
         DecimalFormat df = new DecimalFormat("#0.##");
-        int ivSum = pokemon.getStats().ivs.hp + pokemon.getStats().ivs.attack + pokemon.getStats().ivs.defence + pokemon.getStats().ivs.specialAttack + pokemon.getStats().ivs.specialDefence + pokemon.getStats().ivs.speed;
-        int evSum = pokemon.getStats().evs.hp + pokemon.getStats().evs.attack + pokemon.getStats().evs.defence + pokemon.getStats().evs.specialAttack + pokemon.getStats().evs.specialDefence + pokemon.getStats().evs.speed;
+        int ivSum = pokemon.getStats().getIVs().getStat(BattleStatsType.HP) + pokemon.getStats().getIVs().getStat(BattleStatsType.ATTACK) + pokemon.getStats().getIVs().getStat(BattleStatsType.DEFENSE) + pokemon.getStats().getIVs().getStat(BattleStatsType.SPECIAL_ATTACK) + pokemon.getStats().getIVs().getStat(BattleStatsType.SPECIAL_DEFENSE) + pokemon.getStats().getIVs().getStat(BattleStatsType.SPEED);
+        int evSum = pokemon.getStats().getEVs().getStat(BattleStatsType.HP) + pokemon.getStats().getEVs().getStat(BattleStatsType.ATTACK) + pokemon.getStats().getEVs().getStat(BattleStatsType.DEFENSE) + pokemon.getStats().getEVs().getStat(BattleStatsType.SPECIAL_ATTACK) + pokemon.getStats().getEVs().getStat(BattleStatsType.SPECIAL_DEFENSE) + pokemon.getStats().getEVs().getStat(BattleStatsType.SPEED);
         // Stats
         //String star = "\u2605";
         String nickname = pokemon.getNickname() == null ? pokemon.getSpecies().getLocalizedName() : pokemon.getNickname();
         //String shiny = pokemon.getIsShiny() ? star : "";
         String shiny = pokemon.isShiny() ? "Yes" : "No";
-        int level = pokemon.getLevel();
+        int level = pokemon.getPokemonLevel();
         String nature = pokemon.getNature().getLocalizedName();
         String growth = pokemon.getGrowth().getLocalizedName();
         String ability = pokemon.getAbility().getLocalizedName();
@@ -183,23 +180,23 @@ public class Utils {
         else {
             heldItem += "None";
         }
-        String breedable = unbreedable.matches(pokemon) ? "No" : "Yes";
-        String tradeable = untradeable.matches(pokemon) ? "No" : "Yes";
+        String breedable = unbreedable.isDataMatch(pokemon) ? "No" : "Yes";
+        String tradeable = untradeable.isDataMatch(pokemon) ? "No" : "Yes";
         // EVs
-        int hpEV = pokemon.getStats().evs.hp;
-        int attackEV = pokemon.getStats().evs.attack;
-        int defenceEV = pokemon.getStats().evs.defence;
-        int spAttkEV = pokemon.getStats().evs.specialAttack;
-        int spDefEV = pokemon.getStats().evs.specialDefence;
-        int speedEV = pokemon.getStats().evs.speed;
+        int hpEV = pokemon.getStats().getEVs().getStat(BattleStatsType.HP);
+        int attackEV = pokemon.getStats().getEVs().getStat(BattleStatsType.ATTACK);
+        int defenceEV = pokemon.getStats().getEVs().getStat(BattleStatsType.DEFENSE);
+        int spAttkEV = pokemon.getStats().getEVs().getStat(BattleStatsType.SPECIAL_ATTACK);
+        int spDefEV = pokemon.getStats().getEVs().getStat(BattleStatsType.SPECIAL_DEFENSE);
+        int speedEV = pokemon.getStats().getEVs().getStat(BattleStatsType.SPEED);
         String totalEVs = df.format((long)((int)((double)evSum / 510.0D * 100.0D))) + "%";
         // IVs
-        int hpIV = pokemon.getStats().ivs.hp;
-        int attackIV = pokemon.getStats().ivs.attack;
-        int defenceIV = pokemon.getStats().ivs.defence;
-        int spAttkIV = pokemon.getStats().ivs.specialAttack;
-        int spDefIV = pokemon.getStats().ivs.specialDefence;
-        int speedIV = pokemon.getStats().ivs.speed;
+        int hpIV = pokemon.getStats().getIVs().getStat(BattleStatsType.HP);
+        int attackIV = pokemon.getStats().getIVs().getStat(BattleStatsType.ATTACK);
+        int defenceIV = pokemon.getStats().getIVs().getStat(BattleStatsType.DEFENSE);
+        int spAttkIV = pokemon.getStats().getIVs().getStat(BattleStatsType.SPECIAL_ATTACK);
+        int spDefIV = pokemon.getStats().getIVs().getStat(BattleStatsType.SPECIAL_DEFENSE);
+        int speedIV = pokemon.getStats().getIVs().getStat(BattleStatsType.SPEED);
         String totalIVs = df.format((long)((int)((double)ivSum / 186.0D * 100.0D))) + "%";
         // Moves
         String move1 = pokemon.getMoveset().attacks[0] != null ? "" + pokemon.getMoveset().attacks[0] : "None";
@@ -207,42 +204,45 @@ public class Utils {
         String move3 = pokemon.getMoveset().attacks[2] != null ? "" + pokemon.getMoveset().attacks[2] : "None";
         String move4 = pokemon.getMoveset().attacks[3] != null ? "" + pokemon.getMoveset().attacks[3] : "None";
 
-        lore.add(Text.of(TextColors.DARK_AQUA, "Nickname: ", TextColors.LIGHT_PURPLE, nickname));
-        lore.add(Text.of(TextColors.DARK_AQUA, "Shiny: ", TextColors.LIGHT_PURPLE, shiny));
-        lore.add(Text.of(TextColors.DARK_AQUA, "Level: ", TextColors.LIGHT_PURPLE, level));
-        lore.add(Text.of(TextColors.DARK_AQUA, "Nature: ", TextColors.LIGHT_PURPLE, nature));
-        lore.add(Text.of(TextColors.DARK_AQUA, "Growth: ", TextColors.LIGHT_PURPLE, growth));
-        lore.add(Text.of(TextColors.DARK_AQUA, "Ability: ", TextColors.LIGHT_PURPLE, ability));
-        lore.add(Text.of(TextColors.DARK_AQUA, "OT: ", TextColors.LIGHT_PURPLE, originalTrainer));
-        lore.add(Text.of(TextColors.DARK_AQUA, "Held Item: ", TextColors.LIGHT_PURPLE, heldItem));
-        lore.add(Text.of(TextColors.DARK_AQUA, "Breedable: ", TextColors.LIGHT_PURPLE, breedable));
-        lore.add(Text.of(TextColors.DARK_AQUA, "Tradeable: ", TextColors.LIGHT_PURPLE, tradeable));
-        lore.add(Text.of());
-        lore.add(Text.of(TextColors.DARK_AQUA, "IVs: ", TextColors.GRAY, "(", TextColors.RED, totalIVs, TextColors.GRAY, ")"));
-        lore.add(Text.of(TextColors.AQUA, "Att: ", TextColors.GREEN, attackIV, TextColors.DARK_GRAY, " | ", TextColors.AQUA, "Sp.Att: ", TextColors.GREEN, spAttkIV));
-        lore.add(Text.of(TextColors.AQUA, "Def: ", TextColors.GREEN, defenceIV, TextColors.DARK_GRAY, " | ", TextColors.AQUA, "Sp.Def: ", TextColors.GREEN, spDefIV));
-        lore.add(Text.of(TextColors.AQUA, "HP: ", TextColors.GREEN, hpIV, TextColors.DARK_GRAY, " | ", TextColors.AQUA, "Speed: ", TextColors.GREEN, speedIV));
-        lore.add(Text.of());
-        lore.add(Text.of(TextColors.DARK_AQUA, "EVs: ", TextColors.GRAY, "(", TextColors.RED, totalEVs, TextColors.GRAY, ")"));
-        lore.add(Text.of(TextColors.AQUA, "Att: ", TextColors.GREEN, attackEV, TextColors.DARK_GRAY, " | ", TextColors.AQUA, "Sp.Att: ", TextColors.GREEN, spAttkEV));
-        lore.add(Text.of(TextColors.AQUA, "Def: ", TextColors.GREEN, defenceEV, TextColors.DARK_GRAY, " | ", TextColors.AQUA, "Sp.Def: ", TextColors.GREEN, spDefEV));
-        lore.add(Text.of(TextColors.AQUA, "HP: ", TextColors.GREEN, hpEV, TextColors.DARK_GRAY, " | ", TextColors.AQUA, "Speed: ", TextColors.GREEN, speedEV));
-        lore.add(Text.of());
-        lore.add(Text.of(TextColors.DARK_AQUA, "Moves:"));
-        lore.add(Text.of(TextColors.AQUA, move1, TextColors.DARK_GRAY, " | ", TextColors.AQUA, move2));
-        lore.add(Text.of(TextColors.AQUA, move3, TextColors.DARK_GRAY, " | ", TextColors.AQUA, move4));
+        lore.add(toLegacyText(Text.of(ChatColor.DARK_AQUA, "Nickname: ", ChatColor.LIGHT_PURPLE, nickname)));
+        lore.add(toLegacyText(Text.of(ChatColor.DARK_AQUA, "Shiny: ", ChatColor.LIGHT_PURPLE, shiny)));
+        lore.add(toLegacyText(Text.of(ChatColor.DARK_AQUA, "Level: ", ChatColor.LIGHT_PURPLE, level)));
+        lore.add(toLegacyText(Text.of(ChatColor.DARK_AQUA, "Nature: ", ChatColor.LIGHT_PURPLE, nature)));
+        lore.add(toLegacyText(Text.of(ChatColor.DARK_AQUA, "Growth: ", ChatColor.LIGHT_PURPLE, growth)));
+        lore.add(toLegacyText(Text.of(ChatColor.DARK_AQUA, "Ability: ", ChatColor.LIGHT_PURPLE, ability)));
+        lore.add(toLegacyText(Text.of(ChatColor.DARK_AQUA, "OT: ", ChatColor.LIGHT_PURPLE, originalTrainer)));
+        lore.add(toLegacyText(Text.of(ChatColor.DARK_AQUA, "Held Item: ", ChatColor.LIGHT_PURPLE, heldItem)));
+        lore.add(toLegacyText(Text.of(ChatColor.DARK_AQUA, "Breedable: ", ChatColor.LIGHT_PURPLE, breedable)));
+        lore.add(toLegacyText(Text.of(ChatColor.DARK_AQUA, "Tradeable: ", ChatColor.LIGHT_PURPLE, tradeable)));
+        lore.add(toLegacyText(Text.of()));
+        lore.add(toLegacyText(Text.of(ChatColor.DARK_AQUA, "IVs: ", ChatColor.GRAY, "(", ChatColor.RED, totalIVs, ChatColor.GRAY, ")")));
+        lore.add(toLegacyText(Text.of(ChatColor.AQUA, "Att: ", ChatColor.GREEN, attackIV, ChatColor.DARK_GRAY, " | ", ChatColor.AQUA, "Sp.Att: ", ChatColor.GREEN, spAttkIV)));
+        lore.add(toLegacyText(Text.of(ChatColor.AQUA, "Def: ", ChatColor.GREEN, defenceIV, ChatColor.DARK_GRAY, " | ", ChatColor.AQUA, "Sp.Def: ", ChatColor.GREEN, spDefIV)));
+        lore.add(toLegacyText(Text.of(ChatColor.AQUA, "HP: ", ChatColor.GREEN, hpIV, ChatColor.DARK_GRAY, " | ", ChatColor.AQUA, "Speed: ", ChatColor.GREEN, speedIV)));
+        lore.add(toLegacyText(Text.of()));
+        lore.add(toLegacyText(Text.of(ChatColor.DARK_AQUA, "EVs: ", ChatColor.GRAY, "(", ChatColor.RED, totalEVs, ChatColor.GRAY, ")")));
+        lore.add(toLegacyText(Text.of(ChatColor.AQUA, "Att: ", ChatColor.GREEN, attackEV, ChatColor.DARK_GRAY, " | ", ChatColor.AQUA, "Sp.Att: ", ChatColor.GREEN, spAttkEV)));
+        lore.add(toLegacyText(Text.of(ChatColor.AQUA, "Def: ", ChatColor.GREEN, defenceEV, ChatColor.DARK_GRAY, " | ", ChatColor.AQUA, "Sp.Def: ", ChatColor.GREEN, spDefEV)));
+        lore.add(toLegacyText(Text.of(ChatColor.AQUA, "HP: ", ChatColor.GREEN, hpEV, ChatColor.DARK_GRAY, " | ", ChatColor.AQUA, "Speed: ", ChatColor.GREEN, speedEV)));
+        lore.add(toLegacyText(Text.of()));
+        lore.add(toLegacyText(Text.of(ChatColor.DARK_AQUA, "Moves:")));
+        lore.add(toLegacyText(Text.of(ChatColor.AQUA, move1, ChatColor.DARK_GRAY, " | ", ChatColor.AQUA, move2)));
+        lore.add(toLegacyText(Text.of(ChatColor.AQUA, move3, ChatColor.DARK_GRAY, " | ", ChatColor.AQUA, move4)));
 
         return lore;
     }
 
-    public static boolean isPlayerOccupied(Player player) {
-        BattleControllerBase bcb = BattleRegistry.getSpectatedBattle((EntityPlayerMP)player);
-        if (bcb != null) {
-            return true;
-        }
-        bcb = BattleRegistry.getBattle((EntityPlayerMP)player);
+    public static boolean isPlayerOccupied(Player bukkitPlayer) {
+        ServerPlayerEntity forgePlayer = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(player.getUniqueId());
+        if (forgePlayer != null) {
+            BattleController bc = BattleRegistry.getSpectatedBattle(forgePlayer);
+            if (bc != null) {
+                return true;
+            }
+            bc = BattleRegistry.getBattle(forgePlayer);
 
-        return bcb != null;
+            return bc != null;
+        }
     }
 
     public static LocalDateTime convertToUTC(LocalDateTime localDateTime) {
@@ -251,18 +251,16 @@ public class Utils {
 
     public static void recallAllPokemon(PlayerPartyStorage storage) {
         storage.getTeam().forEach(pokemon -> {
-            EntityPixelmon entity = pokemon.getPixelmonIfExists();
-            if (entity != null) {
-                entity.unloadEntity();
-            }
+            Optional<PixelmonEntity> entity = pokemon.getPixelmonEntity();
+            entity.ifPresent(PixelmonEntity::unloadEntity);
         });
     }
 
     @SuppressWarnings("unchecked")
     public static LinkedHashMap<ItemStack, Pokemon>[] generatePCMaps(Side side) {
-        PCStorage pcStorage = Pixelmon.storageManager.getPCForPlayer(side.getUser().get().getUniqueId());
+        PCStorage pcStorage = StorageProxy.getPCForPlayer(side.getOfflinePlayer().get().getUniqueId());
         List<Pokemon> pcPokemon = getAllPokemon(pcStorage);
-        PlayerPartyStorage partyStorage = Pixelmon.storageManager.getParty(side.getUser().get().getUniqueId());
+        PlayerPartyStorage partyStorage = StorageProxy.getParty(side.getOfflinePlayer().get().getUniqueId());
         List<Pokemon> partyPokemon = getAllPokemon(partyStorage);
 
         LinkedHashMap<ItemStack, Pokemon> partyMap = new LinkedHashMap<>();
@@ -300,10 +298,10 @@ public class Utils {
         return pokemon;
     }
 
-    public static boolean giveItem(Player player, ItemStackSnapshot snapshot) {
-        PlayerInventory inv = (PlayerInventory)player.getInventory();
-        Inventory prioritisedInv = inv.getMain().transform(InventoryTransformations.PLAYER_MAIN_HOTBAR_FIRST);
+    public static boolean giveItem(Player player, ReadWriteNBT snapshot) {
+        Inventory inv = player.getInventory();
+        ItemStack item = NBT.itemStackFromNBT(snapshot);
 
-        return prioritisedInv.offer(snapshot.createStack()).getType() == InventoryTransactionResult.Type.SUCCESS;
+        return inv.addItem(item).isEmpty();
     }
 }

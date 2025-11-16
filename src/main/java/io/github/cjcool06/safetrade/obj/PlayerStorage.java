@@ -4,35 +4,36 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-import com.pixelmonmod.pixelmon.Pixelmon;
 import com.pixelmonmod.pixelmon.api.pokemon.Pokemon;
-import com.pixelmonmod.pixelmon.storage.PlayerPartyStorage;
+import com.pixelmonmod.pixelmon.api.pokemon.PokemonFactory;
+import com.pixelmonmod.pixelmon.api.storage.PlayerPartyStorage;
+
+import com.pixelmonmod.pixelmon.api.storage.StorageProxy;
+import de.tr7zw.nbtapi.NBT;
+import de.tr7zw.nbtapi.iface.ReadWriteNBT;
 import io.github.cjcool06.safetrade.SafeTrade;
 import io.github.cjcool06.safetrade.api.enums.CommandType;
 import io.github.cjcool06.safetrade.helpers.InventoryHelper;
 import io.github.cjcool06.safetrade.managers.DataManager;
 import io.github.cjcool06.safetrade.utils.GsonUtils;
 import io.github.cjcool06.safetrade.utils.Utils;
-import net.minecraft.nbt.NBTTagCompound;
-import org.spongepowered.api.Sponge;
-import org.spongepowered.api.data.persistence.DataFormats;
-import org.spongepowered.api.entity.living.player.Player;
-import org.spongepowered.api.entity.living.player.User;
-import org.spongepowered.api.item.inventory.Inventory;
-import org.spongepowered.api.item.inventory.ItemStack;
-import org.spongepowered.api.item.inventory.ItemStackSnapshot;
-import org.spongepowered.api.service.economy.transaction.ResultType;
-import org.spongepowered.api.service.economy.transaction.TransactionResult;
-import org.spongepowered.api.service.user.UserStorageService;
+import net.minecraft.nbt.CompoundNBT;
+import org.bukkit.Bukkit;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.entity.Player;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.inventory.Inventory;
 
-import java.io.IOException;
+import io.github.cjcool06.safetrade.economy.transaction.ResultType;
+import io.github.cjcool06.safetrade.economy.transaction.TransactionResult;
+
 import java.util.*;
 
 // TODO: Make PlayerStorage GUI that admins can edit
 
 /**
- * A PlayerStorage represents a storage for a {@link User} that holds
- * {@link ItemStackSnapshot}s,
+ * A PlayerStorage represents a storage for a {@link OfflinePlayer} that holds
+ * {@link ReadWriteNBT}s,
  * {@link Pokemon},
  * {@link CommandWrapper}s,
  * and {@link MoneyWrapper}s,
@@ -42,7 +43,7 @@ import java.util.*;
  */
 public class PlayerStorage {
     private final UUID playerUUID;
-    private final List<ItemStackSnapshot> items = new ArrayList<>();
+    private final List<ReadWriteNBT> items = new ArrayList<>();
     private final List<Pokemon> pokemons = new ArrayList<>();
     private final List<CommandWrapper> commands = new ArrayList<>();
     private final List<MoneyWrapper> money = new ArrayList<>();
@@ -50,11 +51,11 @@ public class PlayerStorage {
     private boolean needSaving = false;
     private boolean autoGive = true;
 
-    public PlayerStorage(User user) {
+    public PlayerStorage(OfflinePlayer user) {
         this.playerUUID = user.getUniqueId();
     }
 
-    private PlayerStorage(UUID uuid, boolean autoGive, List<ItemStackSnapshot> items, List<Pokemon> pokemons, List<CommandWrapper> commands, List<MoneyWrapper> money) {
+    private PlayerStorage(UUID uuid, boolean autoGive, List<ReadWriteNBT> items, List<Pokemon> pokemons, List<CommandWrapper> commands, List<MoneyWrapper> money) {
         this.playerUUID = uuid;
         this.autoGive = autoGive;
         this.items.addAll(items);
@@ -78,16 +79,16 @@ public class PlayerStorage {
      * @return An {@link Optional}
      */
     public Optional<Player> getPlayer() {
-        return Sponge.getServer().getPlayer(playerUUID);
+        return Optional.ofNullable(Bukkit.getPlayer(playerUUID));
     }
 
     /**
-     * Attempts to get the {@link User} of this storage.
+     * Attempts to get the {@link OfflinePlayer} of this storage.
      *
      * @return An {@link Optional}
      */
-    public Optional<User> getUser() {
-        return Sponge.getServiceManager().provide(UserStorageService.class).get().get(playerUUID);
+    public Optional<OfflinePlayer> getOfflinePlayer() {
+        return Bukkit.getOfflinePlayer(playerUUID).hasPlayedBefore() ? Optional.of(Bukkit.getOfflinePlayer(playerUUID)) : Optional.empty();
     }
 
     /**
@@ -184,7 +185,7 @@ public class PlayerStorage {
         while (iter.hasNext()) {
             MoneyWrapper wrapper = iter.next();
 
-            TransactionResult result = wrapper.transferBalance(SafeTrade.getEcoService().getOrCreateAccount(getUser().get().getUniqueId()).get());
+            TransactionResult result = wrapper.transferBalance(SafeTrade.getEcoService().getOrCreateAccount(getOfflinePlayer().get().getUniqueId()).get());
 
             if (result.getResult() == ResultType.SUCCESS) {
                 successes.add(wrapper);
@@ -197,20 +198,20 @@ public class PlayerStorage {
     }
 
     /**
-     * Gets all {@link ItemStackSnapshot}s in this storage.
+     * Gets all {@link ReadWriteNBT}s in this storage.
      *
      * @return An unmodifiable list of items
      */
-    public List<ItemStackSnapshot> getItems() {
+    public List<ReadWriteNBT> getItems() {
         return Collections.unmodifiableList(items);
     }
 
     /**
-     * Adds an {@link ItemStackSnapshot} to this storage.
+     * Adds an {@link ReadWriteNBT} to this storage.
      *
      * @param snapshot The item
      */
-    public void addItem(ItemStackSnapshot snapshot) {
+    public void addItem(ReadWriteNBT snapshot) {
         items.add(snapshot);
         if (autoGive) {
             giveItems();
@@ -219,11 +220,11 @@ public class PlayerStorage {
     }
 
     /**
-     * Adds {@link ItemStackSnapshot}s to this storage.
+     * Adds {@link ReadWriteNBT}s to this storage.
      *
      * @param snapshot The items
      */
-    public void addItems(List<ItemStackSnapshot> snapshot) {
+    public void addItems(List<ReadWriteNBT> snapshot) {
         items.addAll(snapshot);
         if (autoGive) {
             giveItems();
@@ -232,27 +233,31 @@ public class PlayerStorage {
     }
 
     /**
-     * Removes an {@link ItemStackSnapshot} from this storage.
+     * Removes an {@link ReadWriteNBT} from this storage.
      *
      * @param snapshot The item
      */
-    public void removeItem(ItemStackSnapshot snapshot) {
+    public void removeItem(ReadWriteNBT snapshot) {
         needSaving = true;
         items.remove(snapshot);
     }
 
     /**
-     * Removes an {@link ItemStack} from this storage.
+     * Removes an {@link org.bukkit.inventory.ItemStack} from this storage.
      *
      * @param itemStack The item
      */
     public void removeItem(ItemStack itemStack) {
-        Iterator<ItemStackSnapshot> iter = items.iterator();
-        while (iter.hasNext()) {
-            ItemStack item = iter.next().createStack();
-            if (item.equalTo(itemStack)) {
-                iter.remove();
-                needSaving = true;
+        if (itemStack != null) {
+            Iterator<ReadWriteNBT> iter = items.iterator();
+            while (iter.hasNext()) {
+                ItemStack item = NBT.itemStackFromNBT(iter.next());
+                if (item != null) {
+                    if (item.equals(itemStack)) {
+                        iter.remove();
+                        needSaving = true;
+                    }
+                }
             }
         }
     }
@@ -270,18 +275,18 @@ public class PlayerStorage {
      *
      * <p>If the player's {@link Inventory} becomes full it will halt and return.</p>
      *
-     * @return The {@link ItemStackSnapshot}s that were successfully given
+     * @return The {@link ReadWriteNBT}s that were successfully given
      */
-    public List<ItemStackSnapshot> giveItems() {
-        List<ItemStackSnapshot> successes = new ArrayList<>();
-        Iterator<ItemStackSnapshot> iter = items.iterator();
+    public List<ReadWriteNBT> giveItems() {
+        List<ReadWriteNBT> successes = new ArrayList<>();
+        Iterator<ReadWriteNBT> iter = items.iterator();
 
         if (!getPlayer().isPresent()) {
             return successes;
         }
 
         while (iter.hasNext()) {
-            ItemStackSnapshot snapshot = iter.next();
+            ReadWriteNBT snapshot = iter.next();
 
             if (Utils.giveItem(getPlayer().get(), snapshot)) {
                 successes.add(snapshot);
@@ -361,7 +366,7 @@ public class PlayerStorage {
     public List<Pokemon> givePokemon() {
         List<Pokemon> successes = new ArrayList<>();
         Iterator<Pokemon> iter = pokemons.iterator();
-        PlayerPartyStorage partyStorage = Pixelmon.storageManager.getParty(playerUUID);
+        PlayerPartyStorage partyStorage = StorageProxy.getParty(playerUUID);
 
         while (iter.hasNext()) {
             Pokemon pokemon = iter.next();
@@ -533,15 +538,11 @@ public class PlayerStorage {
         }
 
         for (Pokemon pokemon : pokemons) {
-            pokemonsArr.add(GsonUtils.serialize(pokemon.writeToNBT(new NBTTagCompound())));
+            pokemonsArr.add(GsonUtils.serialize(pokemon.writeToNBT(new CompoundNBT())));
         }
 
-        for (ItemStackSnapshot snapshot : items) {
-            try {
-                itemsArr.add(DataFormats.JSON.write(snapshot.toContainer()));
-            } catch (IOException ioe) {
-                SafeTrade.getLogger().warn("Unable to serialise item. Details:  Type=" + snapshot.getType().getName() + "  Quantity=", snapshot.getQuantity());
-            }
+        for (ReadWriteNBT snapshot : items) {
+            itemsArr.add(snapshot.toString());
         }
 
         jsonObject.add("PlayerUUID", new JsonPrimitive(playerUUID.toString()));
@@ -563,7 +564,7 @@ public class PlayerStorage {
             UUID playerUUID = UUID.fromString(jsonObject.get("PlayerUUID").getAsString());
             boolean autoGive = jsonObject.get("AutoGive").getAsBoolean();
 
-            List<ItemStackSnapshot> items = new ArrayList<>();
+            List<ReadWriteNBT> items = new ArrayList<>();
             List<Pokemon> pokemons = new ArrayList<>();
             List<CommandWrapper> commands = new ArrayList<>();
             List<MoneyWrapper> money = new ArrayList<>();
@@ -583,16 +584,16 @@ public class PlayerStorage {
             }
 
             for (JsonElement element : jsonObject.get("Pokemon").getAsJsonArray()) {
-                pokemons.add(Pixelmon.pokemonFactory.create(GsonUtils.deserialize(element.getAsString())));
+                pokemons.add(PokemonFactory.create(GsonUtils.deserialize(element.getAsString())));
             }
 
             for (JsonElement element : jsonObject.get("Items").getAsJsonArray()) {
-                items.add(Sponge.getDataManager().deserialize(ItemStackSnapshot.class, DataFormats.JSON.read(element.getAsString())).get());
+                items.add(NBT.parseNBT(element.getAsString()));
             }
 
             return new PlayerStorage(playerUUID, autoGive, items, pokemons, commands, money);
         } catch (Exception e) {
-            SafeTrade.getLogger().warn("There was a problem deserialising a PlayerStorage from a container.");
+            SafeTrade.getPluginLogger().warning("There was a problem deserialising a PlayerStorage from a container.");
             e.printStackTrace();
             return null;
         }

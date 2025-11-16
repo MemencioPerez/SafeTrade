@@ -1,123 +1,106 @@
 package io.github.cjcool06.safetrade;
 
-import com.google.inject.Inject;
+import com.google.inject.Guice;
+import com.google.inject.Injector;
+import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.pixelmonmod.pixelmon.Pixelmon;
 import io.github.cjcool06.safetrade.api.enums.PrefixType;
-import io.github.cjcool06.safetrade.commands.TradeCommand;
+import io.github.cjcool06.safetrade.commands.TradeCommandExecutor;
 import io.github.cjcool06.safetrade.config.Config;
+import io.github.cjcool06.safetrade.config.CurrenciesConfig;
+import io.github.cjcool06.safetrade.economy.service.EconomyService;
 import io.github.cjcool06.safetrade.listeners.*;
 import io.github.cjcool06.safetrade.managers.DataManager;
 import io.github.cjcool06.safetrade.obj.Trade;
 import io.github.cjcool06.safetrade.trackers.Tracker;
-import net.minecraftforge.fml.common.eventhandler.EventBus;
-import ninja.leaping.configurate.objectmapping.GuiceObjectMapperFactory;
-import org.slf4j.Logger;
-import org.spongepowered.api.Sponge;
-import org.spongepowered.api.command.CommandSource;
-import org.spongepowered.api.config.ConfigDir;
-import org.spongepowered.api.entity.living.player.Player;
-import org.spongepowered.api.event.Listener;
-import org.spongepowered.api.event.game.GameReloadEvent;
-import org.spongepowered.api.event.game.state.GameInitializationEvent;
-import org.spongepowered.api.event.game.state.GamePreInitializationEvent;
-import org.spongepowered.api.event.game.state.GameStartingServerEvent;
-import org.spongepowered.api.event.game.state.GameStoppingServerEvent;
-import org.spongepowered.api.event.service.ChangeServiceProviderEvent;
-import org.spongepowered.api.plugin.Dependency;
-import org.spongepowered.api.plugin.Plugin;
-import org.spongepowered.api.plugin.PluginContainer;
-import org.spongepowered.api.service.economy.EconomyService;
-import org.spongepowered.api.text.Text;
-import org.spongepowered.api.text.channel.MessageChannel;
+import io.github.cjcool06.safetrade.utils.Text;
+import me.lucko.commodore.Commodore;
+import me.lucko.commodore.CommodoreProvider;
+import me.lucko.commodore.file.CommodoreFileReader;
+import net.minecraftforge.eventbus.api.BusBuilder;
+import net.minecraftforge.eventbus.api.IEventBus;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.PluginCommand;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.spongepowered.configurate.objectmapping.guice.GuiceObjectMapperProvider;
+import org.bukkit.Bukkit;
+
+import org.bukkit.entity.Player;
+import net.md_5.bungee.api.chat.BaseComponent;
 
 import java.io.File;
-import java.util.concurrent.TimeUnit;
+import java.io.IOException;
+import java.util.Objects;
+import java.util.logging.Logger;
 
-@Plugin(id = SafeTrade.ID,
-        name = SafeTrade.NAME,
-        version = SafeTrade.VERSION,
-        description = SafeTrade.DESCRIPTION,
-        authors = SafeTrade.AUTHORS,
-        dependencies = @Dependency(id = "pixelmon")
-)
-public class SafeTrade {
-    public static final String ID = "safetrade";
-    public static final String NAME = "SafeTrade";
-    public static final String VERSION = "3.2.2";
-    public static final String DESCRIPTION = "Trade Pokemon, Items, and Money safely";
-    public static final String AUTHORS = "CJcool06";
-
-    public static final EventBus EVENT_BUS = new EventBus();
+public class SafeTrade extends JavaPlugin {
+    public static final IEventBus EVENT_BUS = BusBuilder.builder().build();
 
     private static SafeTrade plugin;
-    private EconomyService economyService = null;
+    private EconomyService economyService;
 
-    @Inject
-    private GuiceObjectMapperFactory factory;
+    private GuiceObjectMapperProvider factory;
 
-    @Inject
     private Logger logger;
 
-    @Inject
-    private PluginContainer container;
+    private File dataFolder;
 
-    @Inject
-    @ConfigDir(sharedRoot = false)
-    private File configDir;
-
-    @Listener
-    public void onPreInit(GamePreInitializationEvent event) {
+    @Override
+    public void onLoad() {
         plugin = this;
-
-        Sponge.getEventManager().registerListeners(this, new ConnectionListener());
+        Injector injector = Guice.createInjector();
+        factory = injector.getInstance(GuiceObjectMapperProvider.class);
+        logger = getLogger();
+        dataFolder = new File(getDataFolder().getAbsolutePath());
 
         Pixelmon.EVENT_BUS.register(new EvolutionListener());
 
-        EVENT_BUS.register(new TradeCreationListener());
-        EVENT_BUS.register(new ViewerConnectionListener());
-        EVENT_BUS.register(new TradeExecutedListener());
-        EVENT_BUS.register(new TradeConnectionListener());
+        Bukkit.getPluginManager().registerEvents(new ConnectionListener(), this);
+        Bukkit.getPluginManager().registerEvents(new TradeCreationListener(), this);
+        Bukkit.getPluginManager().registerEvents(new ViewerConnectionListener(), this);
+        Bukkit.getPluginManager().registerEvents(new TradeExecutedListener(), this);
+        Bukkit.getPluginManager().registerEvents(new TradeConnectionListener(), this);
+        Bukkit.getPluginManager().registerEvents(new CallbackListener(), this);
         logger.info("Listeners registered.");
 
-        Sponge.getCommandManager().register(this, TradeCommand.getSpec(), "safetrade");
-        logger.info("Commands registered.");
+        try {
+            Commodore commodore = CommodoreProvider.getCommodore(this);
+            LiteralCommandNode<?> safeTradeBrigadierCommandNode = CommodoreFileReader.INSTANCE.parse(plugin.getResource("safetrade.commodore"));
+            PluginCommand safeTradeBukkitCommand = Bukkit.getServer().getPluginCommand("safetrade");
+            commodore.register(safeTradeBukkitCommand, safeTradeBrigadierCommandNode);
+            Objects.requireNonNull(safeTradeBukkitCommand).setExecutor(new TradeCommandExecutor());
+            logger.info("Commands registered.");
+        } catch (IOException | NullPointerException e) {
+            logger.severe("Failed to load safetrade command.");
+        }
 
         Config.load();
         logger.info("Config loaded.");
+
+        CurrenciesConfig.load();
+        logger.info("Currencies config loaded.");
     }
 
-    @Listener
-    public void onInit(GameInitializationEvent event) {
+    @Override
+    public void onEnable() {
+        economyService = EconomyService.get();
 
-        Sponge.getServiceManager()
-                .getRegistration(EconomyService.class)
-                .ifPresent(prov -> economyService = prov.getProvider());
-
-        logger.info("Economy service: " + (economyService != null ? "Found" : "Not Found"));
-        if (economyService == null) {
-            logger.warn("No economy service was found. Shit's gonna break.");
-        }
-
-        Sponge.getScheduler().createTaskBuilder()
-                .execute(() -> {
+        Bukkit.getScheduler()
+                .runTaskTimerAsynchronously(this, () -> {
                     if (Config.gcLogsEnabled) {
                         int num = DataManager.recycleLogs();
                         if (num > 0) {
                             logger.info("Garbage Collector >> Removed " + num + " old logs.");
                         }
                     }
-                }).async().delay(5, TimeUnit.MINUTES).interval(1, TimeUnit.HOURS).submit(this);
-    }
+                }, 20L * 60L * 5L, 20L * 60L * 60L);
 
-    // Data load will cause errors if loaded before this event
-    @Listener
-    public void onPostInit(GameStartingServerEvent event) {
         DataManager.load();
         logger.info("Data loaded.");
     }
 
-    @Listener
-    public void onGameStopping(GameStoppingServerEvent event) {
+    @Override
+    public void onDisable() {
         logger.info("Executing shutdown tasks.");
         for (Trade trade : Tracker.getAllActiveTrades()) {
             trade.unloadToStorages();
@@ -126,21 +109,8 @@ public class SafeTrade {
         logger.info("Shutdown tasks completed.");
     }
 
-    @Listener
-    public void onReload(GameReloadEvent event) {
-        Config.load();
-        logger.info("Config reloaded.");
-    }
-
-    @Listener
-    public void onChangeServiceProvider(ChangeServiceProviderEvent event) {
-        if (event.getService().equals(EconomyService.class)) {
-            economyService = (EconomyService) event.getNewProviderRegistration().getProvider();
-        }
-    }
-
     /**
-     * Gets sponge's current {@link EconomyService}.
+     * Gets SafeTrade's current {@link EconomyService}.
      *
      * @return The service
      */
@@ -158,53 +128,62 @@ public class SafeTrade {
     }
 
     /**
+     * Gets the data folder of this plugin.
+     *
+     * @return The instance
+     */
+    public static File getPluginDataFolder() {
+        return plugin.dataFolder;
+    }
+
+    /**
      * Gets the {@link Logger} of this plugin.
      *
      * @return The logger
      */
-    public static Logger getLogger() {
+    public static Logger getPluginLogger() {
         return plugin.logger;
     }
 
     /**
-     * Gets the {@link GuiceObjectMapperFactory} of this plugin.
+     * Gets the {@link GuiceObjectMapperProvider} of this plugin.
      *
      * @return The factory
      */
-    public static GuiceObjectMapperFactory getFactory() {
+    public static GuiceObjectMapperProvider getFactory() {
         return plugin.factory;
     }
 
     /**
-     * Sends a {@link Text} message to a {@link Player} adhering to SafeTrade's chat style.
+     * Sends a {@link BaseComponent} message to a {@link Player} adhering to SafeTrade's chat style.
      *
      * @param player The player to send to
      * @param prefixType The type of prefix to send the text with
      * @param text The message
      */
-    public static void sendMessageToPlayer(Player player, PrefixType prefixType, Text text) {
-        player.sendMessage(Text.of(prefixType.getPrefix(), text));
+    public static void sendMessageToPlayer(Player player, PrefixType prefixType, BaseComponent[] text) {
+        player.spigot().sendMessage(Text.of(prefixType.getPrefix(), text));
     }
 
     /**
-     * Sends a {@link Text} message to a {@link Player} adhering to SafeTrade's chat style.
+     * Sends a {@link BaseComponent} message to a {@link Player} adhering to SafeTrade's chat style.
      *
-     * <p>If the {@link CommandSource} is not a player, a prefix will not be sent.</p>
+     * <p>If the {@link org.bukkit.command.CommandSender} is not a player, a prefix will not be sent.</p>
      *
      * @param src The source to send to
      * @param prefixType The type of prefix to send the text with
      * @param text The message
      */
-    public static void sendMessageToCommandSource(CommandSource src, PrefixType prefixType, Text text) {
+    public static void sendMessageToCommandSource(CommandSender src, PrefixType prefixType, BaseComponent[] text) {
         if (src instanceof Player) {
             sendMessageToPlayer((Player)src, prefixType, text);
         }
         else {
-            src.sendMessage(text);
+            src.spigot().sendMessage(text);
         }
     }
 
-    public static void sendMessageToAll(PrefixType prefixType, Text text) {
-        MessageChannel.TO_ALL.send(Text.of(prefixType.getPrefix(), text));
+    public static void sendMessageToAll(PrefixType prefixType, BaseComponent[] text) {
+        Bukkit.getOnlinePlayers().forEach(player -> player.spigot().sendMessage(Text.of(prefixType.getPrefix(), text)));
     }
 }

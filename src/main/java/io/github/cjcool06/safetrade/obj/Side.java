@@ -1,19 +1,17 @@
 package io.github.cjcool06.safetrade.obj;
 
-import com.pixelmonmod.pixelmon.Pixelmon;
+import com.pixelmonmod.pixelmon.api.storage.StorageProxy;
 import io.github.cjcool06.safetrade.SafeTrade;
 import io.github.cjcool06.safetrade.api.enums.InventoryType;
 import io.github.cjcool06.safetrade.api.enums.PrefixType;
-import io.github.cjcool06.safetrade.api.events.trade.InventoryChangeEvent;
+import io.github.cjcool06.safetrade.api.events.trade.inventory.InventoryPreChangeEvent;
 import io.github.cjcool06.safetrade.helpers.InventoryHelper;
+import io.github.cjcool06.safetrade.utils.BukkitEventManagerUtils;
 import io.github.cjcool06.safetrade.utils.Utils;
-import net.minecraft.entity.player.EntityPlayerMP;
-import org.spongepowered.api.Sponge;
-import org.spongepowered.api.entity.living.player.Player;
-import org.spongepowered.api.entity.living.player.User;
-import org.spongepowered.api.service.user.UserStorageService;
-import org.spongepowered.api.text.Text;
-import org.spongepowered.api.text.title.Title;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
+import org.bukkit.OfflinePlayer;
+import net.md_5.bungee.api.chat.BaseComponent;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -32,7 +30,7 @@ public class Side {
 
     public InventoryType currentInventory = InventoryType.NONE;
 
-    public Side(Trade parentTrade, User sideOwner) {
+    public Side(Trade parentTrade, OfflinePlayer sideOwner) {
         this.sideOwnerUUID = sideOwner.getUniqueId();
         this.parentTrade = parentTrade;
         this.vault = new Vault(this);
@@ -98,16 +96,16 @@ public class Side {
      * @return An {@link Optional}
      */
     public Optional<Player> getPlayer() {
-        return Sponge.getServer().getPlayer(sideOwnerUUID);
+        return Optional.ofNullable(Bukkit.getPlayer(sideOwnerUUID));
     }
 
     /**
-     * Attempts to get the {@link User} of this side.
+     * Attempts to get the {@link OfflinePlayer} of this side.
      *
      * @return An {@link Optional}
      */
-    public Optional<User> getUser() {
-        return Sponge.getServiceManager().provide(UserStorageService.class).get().get(sideOwnerUUID);
+    public Optional<OfflinePlayer> getOfflinePlayer() {
+        return Bukkit.getOfflinePlayer(sideOwnerUUID).hasPlayedBefore() ? Optional.of(Bukkit.getOfflinePlayer(sideOwnerUUID)) : Optional.empty();
     }
 
     /**
@@ -127,12 +125,12 @@ public class Side {
      * @param inventoryType The new inventory
      */
     public void changeInventory(InventoryType inventoryType) {
-        if (SafeTrade.EVENT_BUS.post(new InventoryChangeEvent.Pre(this, inventoryType))) {
+        if (BukkitEventManagerUtils.post(new InventoryPreChangeEvent(this, inventoryType))) {
             return;
         }
         if (getPlayer().isPresent()) {
             Player player = getPlayer().get();
-            Utils.recallAllPokemon(Pixelmon.storageManager.getParty((EntityPlayerMP)player));
+            Utils.recallAllPokemon(StorageProxy.getParty(player.getUniqueId()));
             switch (inventoryType) {
                 case MAIN:
                     currentInventory = InventoryType.MAIN;
@@ -174,7 +172,7 @@ public class Side {
      * @param inventoryType The new inventory
      */
     public void changeInventoryForViewer(Player player, InventoryType inventoryType) {
-        Utils.recallAllPokemon(Pixelmon.storageManager.getParty((EntityPlayerMP)player));
+        Utils.recallAllPokemon(StorageProxy.getParty(player.getUniqueId()));
         switch (inventoryType) {
             case MAIN:
                 player.openInventory(parentTrade.getTradeInventory());
@@ -198,33 +196,29 @@ public class Side {
     }
 
     /**
-     * Sends a {@link Text} to the player occupying this side.
+     * Sends a {@link BaseComponent} to the player occupying this side.
      *
      * @param text The message
      */
-    public void sendMessage(Text text) {
+    public void sendMessage(BaseComponent[] text) {
         if (getPlayer().isPresent()) {
             SafeTrade.sendMessageToPlayer(getPlayer().get(), PrefixType.SAFETRADE, text);
         }
     }
 
     /**
-     * Sends a {@link Title} to the player occupying this side.
+     * Sends a title to the player occupying this side.
      *
      * @param title The title
      * @param subtitle The subtitle
      */
-    public void sendTitle(Text title, Text subtitle) {
+    public void sendTitle(BaseComponent[] title, BaseComponent[] subtitle) {
         if (getPlayer().isPresent()) {
-            Title t = Title.builder()
-                    .title(title)
-                    .subtitle(subtitle)
-                    .fadeIn(10)
-                    .stay(70)
-                    .fadeOut(10)
-                    .build();
-
-            getPlayer().get().sendTitle(t);
+            getPlayer().get().sendTitle(BaseComponent.toLegacyText(title),
+                    BaseComponent.toLegacyText(subtitle),
+                    10,
+                    70,
+                    10);
         }
     }
 }

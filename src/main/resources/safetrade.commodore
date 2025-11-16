@@ -1,0 +1,22 @@
+safetrade {
+  player brigadier:string single_word;
+  open;
+  end {
+    player brigadier:string single_word;
+  }
+  storage {
+    player brigadier:string single_word {
+        clear;
+    }
+  }
+  logs {
+    player brigadier:string single_word {
+        player brigadier:string single_word;
+    }
+  }
+  view {
+    player brigadier:string single_word;
+  }
+  reload;
+  wiki;
+}

@@ -1,24 +1,48 @@
 package io.github.cjcool06.safetrade.api.events.trade;
 
 import io.github.cjcool06.safetrade.obj.Trade;
-import net.minecraftforge.fml.common.eventhandler.Cancelable;
-import net.minecraftforge.fml.common.eventhandler.Event;
+import org.bukkit.event.Cancellable;
+import org.bukkit.event.Event;
+import org.bukkit.event.HandlerList;
+import org.jetbrains.annotations.NotNull;
 
 public class TradeEvent extends Event {
 
-    public final Trade trade;
+    private static final HandlerList HANDLERS = new HandlerList();
+
+    private final Trade trade;
+
+    public Trade getTrade() {
+        return trade;
+    }
 
     private TradeEvent(Trade trade) {
         this.trade = trade;
     }
 
+    @Override
+    public @NotNull HandlerList getHandlers() {
+        return HANDLERS;
+    }
+
     /**
      * Posted before the {@link Trade} is executed.
      */
-    @Cancelable
-    public static class Executing extends TradeEvent {
+    public static class Executing extends TradeEvent implements Cancellable {
+        private boolean cancel = false;
+
         public Executing(Trade trade) {
             super(trade);
+        }
+
+        @Override
+        public boolean isCancelled() {
+            return cancel;
+        }
+
+        @Override
+        public void setCancelled(boolean cancel) {
+            this.cancel = cancel;
         }
     }
 

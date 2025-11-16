@@ -2,8 +2,8 @@ package io.github.cjcool06.safetrade.utils;
 
 import com.pixelmonmod.pixelmon.api.pokemon.Pokemon;
 import io.github.cjcool06.safetrade.config.Config;
-import org.spongepowered.api.item.inventory.ItemStack;
-import org.spongepowered.api.service.economy.Currency;
+import org.bukkit.inventory.ItemStack;
+import io.github.cjcool06.safetrade.economy.currency.Currency;
 
 public final class BlacklistUtils {
 
@@ -19,7 +19,7 @@ public final class BlacklistUtils {
 
     public static boolean isBlacklisted(ItemStack itemStack) {
         for (String itemStr : Config.blacklistedItems) {
-            if (itemStr.equalsIgnoreCase(itemStack.getType().getId())) {
+            if (itemStr.equalsIgnoreCase(String.valueOf(itemStack.getType()))) {
                 return true;
             }
         }
@@ -29,7 +29,7 @@ public final class BlacklistUtils {
 
     public static boolean isBlacklisted(Pokemon pokemon) {
         for (String pokemonStr : Config.blacklistedPokemon) {
-            if (pokemonStr.equalsIgnoreCase(pokemon.getSpecies().name)) {
+            if (pokemonStr.equalsIgnoreCase(pokemon.getSpecies().getName())) {
                 return true;
             }
         }

@@ -1,6 +1,6 @@
 package io.github.cjcool06.safetrade.managers;
 
-import com.google.common.reflect.TypeToken;
+import io.leangen.geantyref.TypeToken;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -10,11 +10,12 @@ import io.github.cjcool06.safetrade.obj.Log;
 import io.github.cjcool06.safetrade.obj.PlayerStorage;
 import io.github.cjcool06.safetrade.trackers.Tracker;
 import io.github.cjcool06.safetrade.utils.Utils;
-import ninja.leaping.configurate.ConfigurationOptions;
-import ninja.leaping.configurate.commented.CommentedConfigurationNode;
-import ninja.leaping.configurate.hocon.HoconConfigurationLoader;
-import ninja.leaping.configurate.loader.ConfigurationLoader;
-import org.spongepowered.api.entity.living.player.User;
+import org.spongepowered.configurate.ConfigurationOptions;
+import org.spongepowered.configurate.CommentedConfigurationNode;
+import org.spongepowered.configurate.hocon.HoconConfigurationLoader;
+import org.spongepowered.configurate.loader.ConfigurationLoader;
+import org.bukkit.OfflinePlayer;
+import org.spongepowered.configurate.util.MapFactory;
 
 import java.io.File;
 import java.io.FileReader;
@@ -29,11 +30,11 @@ import java.util.List;
  * DataManager handles all data saving/loading
  */
 public final class DataManager {
-    public static final File dataDir = new File("config/safetrade/data");
-    //public static final File activeDir = new File("config/safetrade/data/active");
-    //public static final File endedDir = new File("config/safetrade/data/inactive");
-    public static final File storageDir = new File("config/safetrade/data/player-storage");
-    public static final File logsDir = new File("config/safetrade/data/logs");
+    public static final File dataDir = new File(SafeTrade.getPluginDataFolder(), "data");
+    //public static final File activeDir = new File(SafeTrade.getPluginDataFolder(), "data/active");
+    //public static final File endedDir = new File(SafeTrade.getPluginDataFolder(), "data/inactive");
+    public static final File storageDir = new File(SafeTrade.getPluginDataFolder(), "data/player-storage");
+    public static final File logsDir = new File(SafeTrade.getPluginDataFolder(), "data/logs");
 
     /**
      * Loads SafeTrade data from files.
@@ -80,8 +81,8 @@ public final class DataManager {
                 Tracker.addEndedTrade(trade, false);
             }*/
         } catch (Exception e) {
-            SafeTrade.getLogger().error("Error reading file: " + (currentFile != null ? currentFile.getName() : "None"));
-            SafeTrade.getLogger().error(e.getMessage());
+            SafeTrade.getPluginLogger().severe("Error reading file: " + (currentFile != null ? currentFile.getName() : "None"));
+            SafeTrade.getPluginLogger().severe(e.getMessage());
         }
     }
 
@@ -118,7 +119,7 @@ public final class DataManager {
             pw.flush();
             pw.close();
         } catch (Exception e) {
-            SafeTrade.getLogger().warn("Error saving the PlayerStorage of a player:  UUID=" + storage.getPlayerUUID().toString());
+            SafeTrade.getPluginLogger().severe("Error saving the PlayerStorage of a player:  UUID=" + storage.getPlayerUUID().toString());
             e.printStackTrace();
         }
     }
@@ -158,88 +159,88 @@ public final class DataManager {
     }*/
 
     /**
-     * Adds a {@link Log} to the {@link User}'s file.
+     * Adds a {@link Log} to the {@link OfflinePlayer}'s file.
      *
      * @param user The user
      * @param log The log
      */
-    public static void addLog(User user, Log log) {
+    public static void addLog(OfflinePlayer user, Log log) {
         File file = getFile(user);
         try {
             ConfigurationLoader<CommentedConfigurationNode> loader = getLoader(file);
-            CommentedConfigurationNode node = loader.load(ConfigurationOptions.defaults().setObjectMapperFactory(SafeTrade.getFactory()));
+            CommentedConfigurationNode node = loader.load();
 
             ArrayList<Log> logs = getLogs(user);
             logs.add(log);
-            node.getNode("logs").setValue(new TypeToken<List<Log>>(){}, logs);
+            node.node("logs").set(new TypeToken<List<Log>>(){}.getType(), logs);
             loader.save(node);
         } catch (Exception e) {
-            SafeTrade.getLogger().error("Error adding log. Offending file: " + file.getName());
+            SafeTrade.getPluginLogger().severe("Error adding log. Offending file: " + file.getName());
             e.printStackTrace();
         }
     }
 
     /**
-     * Removes a {@link Log} from the {@link User}'s file.
+     * Removes a {@link Log} from the {@link OfflinePlayer}'s file.
      *
      * @param user The user
      * @param log The log
      */
-    public static void removeLog(User user, Log log) {
+    public static void removeLog(OfflinePlayer user, Log log) {
         File file = getFile(user);
         if (file.exists()) {
             try {
                 ConfigurationLoader<CommentedConfigurationNode> loader = getLoader(file);
-                CommentedConfigurationNode node = loader.load(ConfigurationOptions.defaults().setObjectMapperFactory(SafeTrade.getFactory()));
+                CommentedConfigurationNode node = loader.load();
                 ArrayList<Log> logs = getLogs(user);
                 logs.removeIf(log1 -> log1.getUniqueID().equals(log.getUniqueID()));
-                node.getNode("logs").setValue(new TypeToken<List<Log>>(){}, logs);
+                node.node("logs").set(new TypeToken<List<Log>>(){}.getType(), logs);
                 loader.save(node);
             } catch (Exception e) {
-                SafeTrade.getLogger().error("Error removing log. Offending file: " + file.getName());
+                SafeTrade.getPluginLogger().severe("Error removing log. Offending file: " + file.getName());
                 e.printStackTrace();
             }
         }
     }
 
     /**
-     * Clears all {@link Log}s from the {@link User}'s file.
+     * Clears all {@link Log}s from the {@link OfflinePlayer}'s file.
      *
      * @param user The user
      */
-    public static void clearLogs(User user) {
+    public static void clearLogs(OfflinePlayer user) {
         File file = getFile(user);
         if (file.exists()) {
             try {
                 ConfigurationLoader<CommentedConfigurationNode> loader = getLoader(file);
-                CommentedConfigurationNode node = loader.load(ConfigurationOptions.defaults().setObjectMapperFactory(SafeTrade.getFactory()));
-                node.getNode("logs").setValue(new TypeToken<List<Log>>(){}, new ArrayList<>());
+                CommentedConfigurationNode node = loader.load();
+                node.node("logs").set(new TypeToken<List<Log>>(){}.getType(), new ArrayList<>());
             } catch (Exception e) {
-                SafeTrade.getLogger().error("Error removing log. Offending file: " + file.getName());
+                SafeTrade.getPluginLogger().severe("Error removing log. Offending file: " + file.getName());
                 e.printStackTrace();
             }
         }
     }
 
     /**
-     * Gets all {@link Log}s from the {@link User}'s file.
+     * Gets all {@link Log}s from the {@link OfflinePlayer}'s file.
      *
      * @param user The user
      * @return A list of logs
      */
-    public static ArrayList<Log> getLogs(User user) {
+    public static ArrayList<Log> getLogs(OfflinePlayer user) {
         ArrayList<Log> logs = new ArrayList<>();
         File file = getFile(user);
         if (file.exists()) {
             try {
                 ConfigurationLoader<CommentedConfigurationNode> loader = getLoader(file);
-                CommentedConfigurationNode node = loader.load(ConfigurationOptions.defaults().setObjectMapperFactory(SafeTrade.getFactory()));
-                if (node.getNode("logs").isVirtual()) {
+                CommentedConfigurationNode node = loader.load();
+                if (node.node("logs").virtual()) {
                     return logs;
                 }
-                logs.addAll(node.getNode("logs").getList(new TypeToken<Log>(){}));
+                logs.addAll(node.node("logs").getList(new TypeToken<Log>(){}));
             } catch (Exception e) {
-                SafeTrade.getLogger().error("Error deserializing log. Offending file: " + file.getName());
+                SafeTrade.getPluginLogger().severe("Error deserializing log. Offending file: " + file.getName());
                 e.printStackTrace();
             }
         }
@@ -263,13 +264,13 @@ public final class DataManager {
                         continue;
                     }
                     ConfigurationLoader<CommentedConfigurationNode> loader = getLoader(file);
-                    CommentedConfigurationNode node = loader.load(ConfigurationOptions.defaults().setObjectMapperFactory(SafeTrade.getFactory()));
-                    if (node.getNode("logs").isVirtual()) {
+                    CommentedConfigurationNode node = loader.load(ConfigurationOptions.defaults().mapFactory((MapFactory) SafeTrade.getFactory().get()));
+                    if (node.node("logs").virtual()) {
                         break;
                     }
-                    logs.addAll(node.getNode("logs").getList(new TypeToken<Log>(){}));
+                    logs.addAll(node.node("logs").getList(new TypeToken<Log>(){}));
                 } catch (Exception e) {
-                    SafeTrade.getLogger().error("Error deserialising log. Offending file: " + file.getName());
+                    SafeTrade.getPluginLogger().severe("Error deserialising log. Offending file: " + file.getName());
                     e.printStackTrace();
                 }
             }
@@ -288,11 +289,11 @@ public final class DataManager {
             if (needsRewrite) {
                 try {
                     ConfigurationLoader<CommentedConfigurationNode> loader = getLoader(file);
-                    CommentedConfigurationNode node = loader.load(ConfigurationOptions.defaults().setObjectMapperFactory(SafeTrade.getFactory()));
-                    node.getNode("logs").setValue(new TypeToken<List<Log>>(){}, logs);
+                    CommentedConfigurationNode node = loader.load();
+                    node.node("logs").set(new TypeToken<List<Log>>(){}.getType(), logs);
                     loader.save(node);
                 } catch (Exception e) {
-                    SafeTrade.getLogger().error("Error recycling logs. Offending file: " + file.getName());
+                    SafeTrade.getPluginLogger().severe("Error recycling logs. Offending file: " + file.getName());
                     e.printStackTrace();
                 }
             }
@@ -308,16 +309,16 @@ public final class DataManager {
      * @return The configuration loader
      */
     public static ConfigurationLoader<CommentedConfigurationNode> getLoader(File file) {
-        return HoconConfigurationLoader.builder().setFile(file).build();
+        return HoconConfigurationLoader.builder().file(file).defaultOptions(opts -> opts.serializers(build -> build.registerAnnotatedObjects(SafeTrade.getFactory().get()))).build();
     }
 
     /**
-     * Gets the file of a {@link User}.
+     * Gets the file of a {@link OfflinePlayer}.
      *
      * @param user The user
      * @return The file
      */
-    public static File getFile(User user) {
+    public static File getFile(OfflinePlayer user) {
         return new File(logsDir, user.getUniqueId() + ".hocon");
     }
 
@@ -330,9 +331,9 @@ public final class DataManager {
     private static boolean isFileEmpty(File file) {
         try {
             CommentedConfigurationNode node = getLoader(file).load();
-            return node.getNode("logs").getChildrenList().isEmpty();
+            return node.node("logs").childrenList().isEmpty();
         } catch (Exception e) {
-            SafeTrade.getLogger().error("Unable to load file to check if empty: " + file.getName());
+            SafeTrade.getPluginLogger().severe("Unable to load file to check if empty: " + file.getName());
             return false;
         }
     }

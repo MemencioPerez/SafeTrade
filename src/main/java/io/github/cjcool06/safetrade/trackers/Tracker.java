@@ -3,8 +3,8 @@ package io.github.cjcool06.safetrade.trackers;
 import io.github.cjcool06.safetrade.managers.DataManager;
 import io.github.cjcool06.safetrade.obj.PlayerStorage;
 import io.github.cjcool06.safetrade.obj.Trade;
-import org.spongepowered.api.entity.living.player.Player;
-import org.spongepowered.api.entity.living.player.User;
+import org.bukkit.entity.Player;
+import org.bukkit.OfflinePlayer;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -91,12 +91,12 @@ public final class Tracker {
     }
 
     /**
-     * Gets a {@link User}'s {@link PlayerStorage} if one is cached, otherwise creates a new one and caches it.
+     * Gets a {@link OfflinePlayer}'s {@link PlayerStorage} if one is cached, otherwise creates a new one and caches it.
      *
      * @param user The user
      * @return A storage
      */
-    public static PlayerStorage getOrCreateStorage(User user) {
+    public static PlayerStorage getOrCreateStorage(OfflinePlayer user) {
 
         PlayerStorage storage = getStorage(user);
         if (storage != null) {
@@ -109,12 +109,12 @@ public final class Tracker {
     }
 
     /**
-     * Gets a {@link User}'s {@link PlayerStorage}.
+     * Gets a {@link OfflinePlayer}'s {@link PlayerStorage}.
      *
      * @param user The user
      * @return The storage, if present
      */
-    public static PlayerStorage getStorage(User user) {
+    public static PlayerStorage getStorage(OfflinePlayer user) {
         for (PlayerStorage storage : storageCache) {
             if (storage.getPlayerUUID().equals(user.getUniqueId())) {
                 return storage;
@@ -124,12 +124,12 @@ public final class Tracker {
     }
 
     /**
-     * Gets the trade of a {@link User} that is participating in a {@link Trade}, if present.
+     * Gets the trade of a {@link OfflinePlayer} that is participating in a {@link Trade}, if present.
      *
      * @param participant The participant
      * @return The trade, if present.
      */
-    public static Trade getActiveTrade(User participant) {
+    public static Trade getActiveTrade(OfflinePlayer participant) {
         for (Trade trade : activeCache) {
             if (trade.getSides()[0].sideOwnerUUID.equals(participant.getUniqueId()) || trade.getSides()[1].sideOwnerUUID.equals(participant.getUniqueId())) {
                 return trade;

@@ -3,15 +3,15 @@ package io.github.cjcool06.safetrade.commands;
 import io.github.cjcool06.safetrade.SafeTrade;
 import io.github.cjcool06.safetrade.api.enums.PrefixType;
 import io.github.cjcool06.safetrade.config.Config;
+import io.github.cjcool06.safetrade.utils.Text;
+import org.jetbrains.annotations.NotNull;
 import org.spongepowered.api.command.CommandResult;
-import org.spongepowered.api.command.CommandSource;
-import org.spongepowered.api.command.args.CommandContext;
-import org.spongepowered.api.command.spec.CommandExecutor;
+import org.bukkit.command.CommandSender;
+// import org.spongepowered.api.command.args.CommandContext;
 import org.spongepowered.api.command.spec.CommandSpec;
-import org.spongepowered.api.text.Text;
-import org.spongepowered.api.text.format.TextColors;
+import net.md_5.bungee.api.ChatColor;
 
-public class ReloadCommand implements CommandExecutor {
+public class ReloadCommand implements ChildCommandExecutor {
 
     public static CommandSpec getSpec() {
         return CommandSpec.builder()
@@ -21,10 +21,10 @@ public class ReloadCommand implements CommandExecutor {
                 .build();
     }
 
-    public CommandResult execute(CommandSource src, CommandContext args) {
+    public boolean execute(@NotNull CommandSender sender, @NotNull CommandArgs args) {
         Config.load();
-        SafeTrade.sendMessageToCommandSource(src, PrefixType.CONFIG, Text.of(TextColors.GRAY, "Config reloaded."));
+        SafeTrade.sendMessageToCommandSource(sender, PrefixType.CONFIG, Text.of(ChatColor.GRAY, "Config reloaded."));
 
-        return CommandResult.success();
+        return true;
     }
 }

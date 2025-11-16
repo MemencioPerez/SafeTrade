@@ -1,63 +1,103 @@
-buildscript {
-    repositories {
-        jcenter()
-        maven {
-            name = "forge"
-            url = "http://files.minecraftforge.net/maven"
-        }
-    }
-    dependencies {
-        classpath 'net.minecraftforge.gradle:ForgeGradle:2.3-SNAPSHOT'
-    }
-}
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
 plugins {
-    id 'org.spongepowered.plugin' version '0.8.1'
+    id 'java'
+    id 'idea'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'com.gradleup.shadow' version '8.3.5'
 }
 
-apply plugin: 'net.minecraftforge.gradle.forge'
+group = 'io.github.cjcool06'
+version = "${minecraft_version}-1.0.0-PIXELMON-ALPHA"
 
-
-version = "1.12.2-3.2.2-PIXELMON"
-group = "io.github.cjcool06"
-archivesBaseName = "SafeTrade"
-
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
-
-tasks.withType(JavaCompile) {
-    task ->
-        task.options.encoding = 'UTF-8'
-        task.options.fork = true
+repositories {
+    maven {
+        name = "spigotmc-repo"
+        url = "https://hub.spigotmc.org/nexus/content/repositories/snapshots/"
+    }
+    maven {
+        name = "sonatype"
+        url = "https://oss.sonatype.org/content/groups/public/"
+    }
+    maven {
+        name = "CodeMC"
+        url = uri("https://repo.codemc.io/repository/maven-public/")
+    }
+    maven { url 'https://jitpack.io' }
+    maven { url 'https://libraries.minecraft.net/' }
+    ivy {
+        url 'https://download.nodecdn.net/containers/reforged/server/release'
+        metadataSources {
+            artifact()
+        }
+        patternLayout {
+            artifact('[revision]/[artifact].[ext]')
+        }
+    }
 }
 
 minecraft {
-    version = "1.12.2-14.23.5.2838"
-    runDir = "run"
-    mappings = "stable_39"
-}
-
-repositories {
-    mavenCentral()
+    mappings channel: mapping_channel, version: mapping_version
 }
 
 dependencies {
-    compile 'org.spongepowered:spongeapi:7.2.0-SNAPSHOT'
-    compile fileTree(dir: 'libs', include: ['*.jar'])
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    compileOnly "org.spigotmc:spigot-api:${minecraft_version}-R0.1-SNAPSHOT"
+    compileOnly "de.tr7zw:item-nbt-api-plugin:2.14.0"
+    compileOnly "com.github.MilkBowl:VaultAPI:1.7"
+    implementation fg.deobf("pixelmon:Pixelmon-${minecraft_version}-${pixelmon_version}-server:${pixelmon_version}")
+    implementation 'me.lucko:commodore:2.2'
+    implementation 'org.jetbrains:annotations:24.0.0'
+    implementation 'com.google.inject:guice:7.0.0'
+    shadow "net.kyori:adventure-platform-bukkit:4.4.0"
+    shadow 'org.spongepowered:configurate-hocon:4.0.0'
+    shadow 'org.spongepowered:configurate-extra-guice:4.0.0'
+    shadow "net.kyori:adventure-platform-bukkit:4.4.0"
 }
 
-//Fix forges AT breaking everything because the AT checker is stupid
-[tasks.deobfMcMCP, tasks.deobfMcSRG].each { it.failOnAtError = false }
+def targetJavaVersion = 8
+java {
+    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
+    sourceCompatibility = javaVersion
+    targetCompatibility = javaVersion
+    if (JavaVersion.current() < javaVersion) {
+        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-Xlint:-options' << '-Xmaxerrs' << "1000"
+
+    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
+        options.release.set(targetJavaVersion)
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    finalizedBy 'shadowJar'
+}
+
+tasks.named('shadowJar', ShadowJar).configure {
+    configurations = [project.configurations.shadow]
+    archiveClassifier = ''
+
+    dependencies {
+        exclude(dependency('com.mojang:brigadier'))
+    }
+
+    relocate 'me.lucko.commodore', 'io.github.cjcool06.safetrade.libs.commodore'
+    relocate 'org.spongepowered.configurate', 'io.github.cjcool06.safetrade.libs.configurate'
+    relocate 'net.kyori', 'io.github.cjcool06.safetrade.libs.adventure'
+
+    finalizedBy 'reobfJar'
+}
 
 processResources {
-    inputs.property "version", project.version
-    inputs.property "mcversion", project.minecraft.version
-
-    from(sourceSets.main.resources.srcDirs) {
-        include 'mcmod.info'
-        expand 'version':project.version, 'mcversion':project.minecraft.version
-    }
-    from(sourceSets.main.resources.srcDirs) {
-        exclude 'mcmod.info'
+    def props = [version: version]
+    inputs.properties props
+    filteringCharset 'UTF-8'
+    filesMatching('plugin.yml') {
+        expand props
     }
 }

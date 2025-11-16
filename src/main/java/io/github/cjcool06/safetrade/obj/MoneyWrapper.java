@@ -3,11 +3,9 @@ package io.github.cjcool06.safetrade.obj;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import io.github.cjcool06.safetrade.SafeTrade;
-import org.spongepowered.api.event.cause.Cause;
-import org.spongepowered.api.event.cause.EventContext;
-import org.spongepowered.api.service.economy.Currency;
-import org.spongepowered.api.service.economy.account.Account;
-import org.spongepowered.api.service.economy.transaction.TransactionResult;
+import io.github.cjcool06.safetrade.economy.account.Account;
+import io.github.cjcool06.safetrade.economy.currency.Currency;
+import io.github.cjcool06.safetrade.economy.transaction.TransactionResult;
 
 import java.math.BigDecimal;
 
@@ -52,7 +50,7 @@ public class MoneyWrapper {
      * @return The result
      */
     public TransactionResult transferBalance(Account account) {
-        return account.deposit(currency, balance, Cause.of(EventContext.empty(), SafeTrade.getPlugin()));
+        return account.deposit(currency, balance);
     }
 
     public void toContainer(JsonObject jsonObject) {
@@ -73,7 +71,7 @@ public class MoneyWrapper {
 
             throw new Exception("No currency was found for id:" + currencyID);
         } catch (Exception e) {
-            SafeTrade.getLogger().warn("There was a problem deserialising a MoneyWrapper from a container." +
+            SafeTrade.getPluginLogger().warning("There was a problem deserialising a MoneyWrapper from a container." +
                     "\n" + e.getMessage() + "\n");
             e.printStackTrace();
             return null;

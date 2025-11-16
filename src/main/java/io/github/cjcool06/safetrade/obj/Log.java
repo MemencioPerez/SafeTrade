@@ -6,22 +6,23 @@ import com.pixelmonmod.pixelmon.Pixelmon;
 import com.pixelmonmod.pixelmon.api.pokemon.Pokemon;
 import io.github.cjcool06.safetrade.SafeTrade;
 import io.github.cjcool06.safetrade.helpers.InventoryHelper;
+import io.github.cjcool06.safetrade.utils.Text;
 import io.github.cjcool06.safetrade.utils.GsonUtils;
 import io.github.cjcool06.safetrade.utils.Utils;
+import net.md_5.bungee.api.chat.BaseComponent;
 import net.minecraft.nbt.NBTTagCompound;
-import ninja.leaping.configurate.objectmapping.Setting;
-import ninja.leaping.configurate.objectmapping.serialize.ConfigSerializable;
-import org.spongepowered.api.Sponge;
+import org.bukkit.OfflinePlayer;
+import org.spongepowered.configurate.objectmapping.ConfigSerializable;
+import org.bukkit.Bukkit;
 import org.spongepowered.api.data.persistence.DataFormats;
-import org.spongepowered.api.entity.living.player.Player;
-import org.spongepowered.api.entity.living.player.User;
-import org.spongepowered.api.item.inventory.Inventory;
-import org.spongepowered.api.item.inventory.ItemStackSnapshot;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
+import de.tr7zw.nbtapi.iface.ReadWriteNBT;
 import org.spongepowered.api.service.pagination.PaginationList;
-import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.action.TextActions;
-import org.spongepowered.api.text.format.TextColors;
+import net.md_5.bungee.api.ChatColor;
 import org.spongepowered.api.text.serializer.TextSerializers;
+import org.spongepowered.configurate.objectmapping.meta.Setting;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -74,11 +75,11 @@ public class Log {
 
     // Caches
     private List<Pokemon> sideCachedPokemon = null;
-    private List<ItemStackSnapshot> sideCachedItems = null;
+    private List<ReadWriteNBT> sideCachedItems = null;
     private List<MoneyWrapper> sideCachedMoney = null;
 
     private List<Pokemon> otherSideCachedPokemon = null;
-    private List<ItemStackSnapshot> otherSideCachedItems = null;
+    private List<ReadWriteNBT> otherSideCachedItems = null;
     private List<MoneyWrapper> otherSideCachedMoney = null;
 
     /**
@@ -143,21 +144,21 @@ public class Log {
     }
 
     /**
-     * Gets the first participant of the logged trade as a {@link User}.
+     * Gets the first participant of the logged trade as a {@link OfflinePlayer}.
      *
      * @return The first participant
      */
-    public User getParticipant() {
-        return Utils.getUser(participant).get();
+    public OfflinePlayer getParticipant() {
+        return Utils.getOfflinePlayer(participant).get();
     }
 
     /**
-     * Gets the other participant of the logged trade as a {@link User}.
+     * Gets the other participant of the logged trade as a {@link OfflinePlayer}.
      *
      * @return The other participant
      */
-    public User getOtherParticipant() {
-        return Utils.getUser(otherParticipant).get();
+    public OfflinePlayer getOtherParticipant() {
+        return Utils.getOfflinePlayer(otherParticipant).get();
     }
 
     /**
@@ -198,20 +199,20 @@ public class Log {
     }
 
     /**
-     * Gets the first participant's logged {@link ItemStackSnapshot}s.
+     * Gets the first participant's logged {@link ReadWriteNBT}s.
      *
      * @return The items
      */
     @SuppressWarnings("all")
-    public List<ItemStackSnapshot> getSidesItems() {
+    public List<ReadWriteNBT> getSidesItems() {
         if (sideCachedItems != null) {
             return Collections.unmodifiableList(sideCachedItems);
         }
 
-        List<ItemStackSnapshot> items = new ArrayList<>();
+        List<ReadWriteNBT> items = new ArrayList<>();
         for (String itemStr : sideItemStrings) {
             try {
-                items.add(Sponge.getDataManager().deserialize(ItemStackSnapshot.class, DataFormats.JSON.read(itemStr)).get());
+                items.add(Sponge.getDataManager().deserialize(ReadWriteNBT.class, DataFormats.JSON.read(itemStr)).get());
             } catch (Exception e) {
                 continue;
             }
@@ -222,20 +223,20 @@ public class Log {
     }
 
     /**
-     * Gets the first participant's logged {@link ItemStackSnapshot}s.
+     * Gets the first participant's logged {@link ReadWriteNBT}s.
      *
      * @return The items
      */
     @SuppressWarnings("all")
-    public List<ItemStackSnapshot> getOtherSidesItems() {
+    public List<ReadWriteNBT> getOtherSidesItems() {
         if (otherSideCachedItems != null) {
             return Collections.unmodifiableList(otherSideCachedItems);
         }
 
-        List<ItemStackSnapshot> items = new ArrayList<>();
+        List<ReadWriteNBT> items = new ArrayList<>();
         for (String itemStr : otherSideItemStrings) {
             try {
-                items.add(Sponge.getDataManager().deserialize(ItemStackSnapshot.class, DataFormats.JSON.read(itemStr)).get());
+                items.add(Sponge.getDataManager().deserialize(ReadWriteNBT.class, DataFormats.JSON.read(itemStr)).get());
             } catch (Exception e) {
                 continue;
             }
@@ -331,12 +332,12 @@ public class Log {
     }
 
     /**
-     * Builds the log {@link Text} from the json texts.
+     * Builds the log {@link net.md_5.bungee.api.chat.BaseComponent} from the json texts.
      *
      * @return The log text
      */
     @Deprecated
-    public Text getText() {
+    public BaseComponent[] getText() {
         Text.Builder builder = Text.builder();
         builder.append(TextSerializers.JSON.deserialize(jsonTexts.get(0)));
         builder.append(TextSerializers.JSON.deserialize(jsonTexts.get(1)).toBuilder()
@@ -344,7 +345,7 @@ public class Log {
                     PaginationList.builder()
                             .title(TextSerializers.JSON.deserialize(jsonTexts.get(2)))
                             .contents(TextSerializers.JSON.deserialize(jsonTexts.get(3)))
-                            .padding(Text.of(TextColors.GRAY, "-", TextColors.RESET))
+                            .padding(Text.of(ChatColor.GRAY, "-", ChatColor.RESET))
                             .sendTo(src);
                 }))
                 .build());
@@ -354,7 +355,7 @@ public class Log {
                     PaginationList.builder()
                             .title(TextSerializers.JSON.deserialize(jsonTexts.get(6)))
                             .contents(TextSerializers.JSON.deserialize(jsonTexts.get(7)))
-                            .padding(Text.of(TextColors.GRAY, "-", TextColors.RESET))
+                            .padding(Text.of(ChatColor.GRAY, "-", ChatColor.RESET))
                             .sendTo(src);
                 }))
                 .build());
@@ -362,26 +363,26 @@ public class Log {
         return builder.build();
     }
 
-    public Text getDisplayText() {
+    public BaseComponent[] getDisplayText() {
         return Text.builder()
-                .append(Text.of(TextColors.AQUA, getParticipant().getName(), TextColors.DARK_AQUA, " & ", Text.of(TextColors.AQUA, getOtherParticipant().getName())))
-                .onHover(TextActions.showText(Text.of(TextColors.GRAY, "Click here to see this trade's extended log")))
+                .append(Text.of(ChatColor.AQUA, getParticipant().getName(), ChatColor.DARK_AQUA, " & ", Text.of(ChatColor.AQUA, getOtherParticipant().getName())))
+                .onHover(TextActions.showText(Text.of(ChatColor.GRAY, "Click here to see this trade's extended log")))
                 .onClick(TextActions.executeCallback(src -> {
                     Player player = (Player)src;
-                    Sponge.getScheduler().createTaskBuilder().execute(() -> player.openInventory(getInventory())).delayTicks(1).submit(SafeTrade.getPlugin());
+                    Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), () -> player.openInventory(getInventory()));
                 }))
                 .build();
     }
 
-    public Text getDisplayTextWithDate() {
+    public BaseComponent[] getDisplayTextWithDate() {
         return Text.builder()
-                .append(Text.builder().append(Text.of(TextColors.LIGHT_PURPLE, "[" + Log.getFormatter().format(Utils.convertToUTC(LocalDateTime.now())) + " UTC] "))
-                        .onHover(TextActions.showText(Text.of(TextColors.GRAY, "Day/Month/Year Hour:Minute"))).build())
-                .append(Text.of(TextColors.AQUA, getParticipant().getName(), TextColors.DARK_AQUA, " & ", Text.of(TextColors.AQUA, getOtherParticipant().getName())))
-                .onHover(TextActions.showText(Text.of(TextColors.GRAY, "Click here to see this trade's extended log")))
+                .append(Text.builder().append(Text.of(ChatColor.LIGHT_PURPLE, "[" + Log.getFormatter().format(Utils.convertToUTC(LocalDateTime.now())) + " UTC] "))
+                        .onHover(TextActions.showText(Text.of(ChatColor.GRAY, "Day/Month/Year Hour:Minute"))).build())
+                .append(Text.of(ChatColor.AQUA, getParticipant().getName(), ChatColor.DARK_AQUA, " & ", Text.of(ChatColor.AQUA, getOtherParticipant().getName())))
+                .onHover(TextActions.showText(Text.of(ChatColor.GRAY, "Click here to see this trade's extended log")))
                 .onClick(TextActions.executeCallback(src -> {
                     Player player = (Player)src;
-                    Sponge.getScheduler().createTaskBuilder().execute(() -> player.openInventory(getInventory())).delayTicks(1).submit(SafeTrade.getPlugin());
+                    Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), () -> player.openInventory(getInventory()));
                 }))
                 .build();
     }
@@ -396,9 +397,9 @@ public class Log {
     }
 
     @SuppressWarnings("all")
-    private List<String> serialiseItemSnapshots(List<ItemStackSnapshot> items) {
+    private List<String> serialiseItemSnapshots(List<ReadWriteNBT> items) {
         List<String> itemStrings = new ArrayList<>();
-        for (ItemStackSnapshot snapshot : items) {
+        for (ReadWriteNBT snapshot : items) {
             try {
                 itemStrings.add(DataFormats.JSON.write(snapshot.toContainer()));
             } catch (IOException ioe) {

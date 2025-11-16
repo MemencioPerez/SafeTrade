@@ -4,18 +4,18 @@ import io.github.cjcool06.safetrade.SafeTrade;
 import io.github.cjcool06.safetrade.api.enums.PrefixType;
 import io.github.cjcool06.safetrade.obj.Trade;
 import io.github.cjcool06.safetrade.trackers.Tracker;
+import io.github.cjcool06.safetrade.utils.Text;
+import org.bukkit.command.CommandSender;
+import org.jetbrains.annotations.NotNull;
 import org.spongepowered.api.command.CommandResult;
-import org.spongepowered.api.command.CommandSource;
-import org.spongepowered.api.command.args.CommandContext;
+// import org.spongepowered.api.command.args.CommandContext;
 import org.spongepowered.api.command.args.GenericArguments;
-import org.spongepowered.api.command.spec.CommandExecutor;
 import org.spongepowered.api.command.spec.CommandSpec;
-import org.spongepowered.api.entity.living.player.Player;
-import org.spongepowered.api.entity.living.player.User;
-import org.spongepowered.api.text.Text;
-import org.spongepowered.api.text.format.TextColors;
+import org.bukkit.entity.Player;
+import org.bukkit.OfflinePlayer;
+import net.md_5.bungee.api.ChatColor;
 
-public class ViewCommand implements CommandExecutor {
+public class ViewCommand implements ChildCommandExecutor {
 
     public static CommandSpec getSpec() {
         return CommandSpec.builder()
@@ -26,22 +26,22 @@ public class ViewCommand implements CommandExecutor {
                 .build();
     }
 
-    public CommandResult execute(CommandSource src, CommandContext args) {
-        if (src instanceof Player) {
-            User user = args.<User>getOne("target").get();
+    public boolean execute(@NotNull CommandSender sender, @NotNull CommandArgs args) {
+        if (sender instanceof Player) {
+            OfflinePlayer user = args.<OfflinePlayer>getOne("target").get();
             Trade trade = Tracker.getActiveTrade(user);
 
             if (trade != null) {
-                trade.addViewer((Player)src, true);
-                SafeTrade.sendMessageToPlayer((Player)src, PrefixType.SAFETRADE, Text.of(TextColors.GREEN, "Opening trade between ", TextColors.GOLD, trade.getSides()[0].getUser().get().getName(), TextColors.GREEN, " & ", TextColors.GOLD, trade.getSides()[1].getUser().get().getName(), TextColors.GREEN, "."));
+                trade.addViewer((Player)sender, true);
+                SafeTrade.sendMessageToPlayer((Player)sender, PrefixType.SAFETRADE, Text.of(ChatColor.GREEN, "Opening trade between ", ChatColor.GOLD, trade.getSides()[0].getOfflinePlayer().get().getName(), ChatColor.GREEN, " & ", ChatColor.GOLD, trade.getSides()[1].getOfflinePlayer().get().getName(), ChatColor.GREEN, "."));
             } else {
-                SafeTrade.sendMessageToPlayer((Player)src, PrefixType.SAFETRADE, Text.of(TextColors.GOLD, user.getName(), TextColors.RED, " is not currently participating in a SafeTrade."));
+                SafeTrade.sendMessageToPlayer((Player)sender, PrefixType.SAFETRADE, Text.of(ChatColor.GOLD, user.getName(), ChatColor.RED, " is not currently participating in a SafeTrade."));
             }
         }
         else {
-            SafeTrade.sendMessageToCommandSource(src, PrefixType.SAFETRADE, Text.of(TextColors.RED, "You must be a player to do that."));
+            SafeTrade.sendMessageToCommandSource(sender, PrefixType.SAFETRADE, Text.of(ChatColor.RED, "You must be a player to do that."));
         }
 
-        return CommandResult.success();
+        return true;
     }
 }

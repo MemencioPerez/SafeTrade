@@ -1,12 +1,10 @@
 package io.github.cjcool06.safetrade.channels;
 
-import org.spongepowered.api.command.CommandSource;
-import org.spongepowered.api.text.Text;
-import org.spongepowered.api.text.channel.MessageReceiver;
-import org.spongepowered.api.text.channel.MutableMessageChannel;
-import org.spongepowered.api.text.chat.ChatType;
-import org.spongepowered.api.text.format.TextColors;
-import org.spongepowered.api.text.format.TextStyles;
+import io.github.cjcool06.safetrade.utils.Text;
+import net.md_5.bungee.api.ChatMessageType;
+import net.md_5.bungee.api.chat.BaseComponent;
+import org.bukkit.entity.Player;
+import net.md_5.bungee.api.ChatColor;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -17,36 +15,26 @@ import java.util.Optional;
 /**
  * A TradeChannel represents the chat between the two {@link io.github.cjcool06.safetrade.obj.Side}s of a {@link io.github.cjcool06.safetrade.obj.Trade}.
  */
-public class TradeChannel implements MutableMessageChannel {
-    List<MessageReceiver> members = new ArrayList<>();
+public class TradeChannel {
+    List<Player> members = new ArrayList<>();
 
-    @Override
-    public boolean addMember(MessageReceiver member) {
+    public boolean addMember(Player member) {
         return members.add(member);
     }
 
-    @Override
-    public boolean removeMember(MessageReceiver member) {
+    public boolean removeMember(Player member) {
         return members.remove(member);
     }
 
-    @Override
     public void clearMembers() {
         members.clear();
     }
 
-    @Override
-    public Optional<Text> transformMessage(@Nullable Object sender, MessageReceiver recipient, Text original, ChatType type) {
-        if (sender instanceof CommandSource) {
-            return Optional.of(Text.of(TextColors.AQUA, TextStyles.BOLD, "[Trade] ", TextStyles.RESET, TextColors.RESET, original));
-        }
-        else {
-            return Optional.of(Text.of(TextColors.AQUA, TextStyles.BOLD, "[Trade] ", TextStyles.RESET, TextColors.RESET, original));
-        }
+    public Optional<BaseComponent[]> transformMessage(@Nullable Object sender, Player recipient, BaseComponent[] original, ChatMessageType type) {
+        return Optional.of(Text.of(ChatColor.AQUA, ChatColor.BOLD, "[Trade] ", ChatColor.RESET, ChatColor.RESET, original));
     }
 
-    @Override
-    public Collection<MessageReceiver> getMembers(){
+    public Collection<Player> getMembers(){
             return new ArrayList<>(members);
     }
 }

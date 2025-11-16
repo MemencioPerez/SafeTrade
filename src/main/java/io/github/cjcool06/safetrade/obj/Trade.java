@@ -5,29 +5,23 @@ import io.github.cjcool06.safetrade.api.enums.InventoryType;
 import io.github.cjcool06.safetrade.api.enums.PrefixType;
 import io.github.cjcool06.safetrade.api.enums.TradeResult;
 import io.github.cjcool06.safetrade.api.enums.TradeState;
-import io.github.cjcool06.safetrade.api.events.trade.StateChangedEvent;
+import io.github.cjcool06.safetrade.api.events.trade.state.StateChangedEvent;
 import io.github.cjcool06.safetrade.api.events.trade.TradeCreationEvent;
 import io.github.cjcool06.safetrade.api.events.trade.TradeEvent;
 import io.github.cjcool06.safetrade.channels.TradeChannel;
 import io.github.cjcool06.safetrade.helpers.InventoryHelper;
 import io.github.cjcool06.safetrade.trackers.Tracker;
+import io.github.cjcool06.safetrade.utils.BukkitEventManagerUtils;
 import io.github.cjcool06.safetrade.utils.ItemUtils;
 import io.github.cjcool06.safetrade.utils.LogUtils;
-import org.spongepowered.api.Sponge;
-import org.spongepowered.api.data.type.DyeColors;
-import org.spongepowered.api.entity.living.player.Player;
-import org.spongepowered.api.entity.living.player.User;
-import org.spongepowered.api.event.item.inventory.ClickInventoryEvent;
-import org.spongepowered.api.event.item.inventory.InteractInventoryEvent;
-import org.spongepowered.api.item.inventory.Inventory;
-import org.spongepowered.api.item.inventory.InventoryArchetypes;
-import org.spongepowered.api.item.inventory.ItemStack;
-import org.spongepowered.api.item.inventory.property.InventoryDimension;
-import org.spongepowered.api.item.inventory.property.InventoryTitle;
-import org.spongepowered.api.item.inventory.property.SlotIndex;
-import org.spongepowered.api.text.Text;
-import org.spongepowered.api.text.channel.MessageChannel;
-import org.spongepowered.api.text.format.TextColors;
+import org.bukkit.Bukkit;
+import org.bukkit.DyeColor;
+import org.bukkit.entity.Player;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import net.md_5.bungee.api.chat.BaseComponent;
+import net.md_5.bungee.api.ChatColor;
 
 import java.util.*;
 
@@ -56,7 +50,7 @@ public class Trade {
         participant2.setMessageChannel(tradeChannel);
 
         tradeInventory = Inventory.builder()
-                .property(InventoryTitle.PROPERTY_NAME, InventoryTitle.of(Text.of(TextColors.DARK_AQUA, "SafeTrade - Trade Safely!")))
+                .property(InventoryTitle.PROPERTY_NAME, InventoryTitle.of(BaseComponentUtils.of(ChatColor.DARK_AQUA, "SafeTrade - Trade Safely!")))
                 .property(InventoryDimension.PROPERTY_NAME, new InventoryDimension(9,6))
                 .of(InventoryArchetypes.MENU_GRID)
                 .listener(ClickInventoryEvent.class, this::handleClick)
@@ -66,7 +60,7 @@ public class Trade {
         reformatInventory();
 
         Tracker.addActiveTrade(this);
-        SafeTrade.EVENT_BUS.post(new TradeCreationEvent(this));
+        Bukkit.getPluginManager().callEvent(new TradeCreationEvent(this));
     }
 
     /**
@@ -101,14 +95,14 @@ public class Trade {
     }
 
     /**
-     * Gets a list of participants of the trade as a {@link User} object.
+     * Gets a list of participants of the trade as a {@link OfflinePlayer} object.
      *
      * @return The participants
      */
-    public List<User> getParticipants() {
-        List<User> participants = new ArrayList<>();
-        participants.add(sides[0].getUser().get());
-        participants.add(sides[1].getUser().get());
+    public List<OfflinePlayer> getParticipants() {
+        List<OfflinePlayer> participants = new ArrayList<>();
+        participants.add(sides[0].getOfflinePlayer().get());
+        participants.add(sides[1].getOfflinePlayer().get());
 
         return participants;
     }
@@ -131,7 +125,7 @@ public class Trade {
         if (this.state != state) {
             TradeState oldState = this.state;
             this.state = state;
-            SafeTrade.EVENT_BUS.post(new StateChangedEvent(this, oldState, state));
+            Bukkit.getPluginManager().callEvent(new StateChangedEvent(this, oldState, state));
         }
     }
 
@@ -139,7 +133,7 @@ public class Trade {
      * Executes the trade.
      */
     public Result executeTrade() {
-        if (SafeTrade.EVENT_BUS.post(new TradeEvent.Executing(this))) {
+        if (BukkitEventManagerUtils.post(new TradeEvent.Executing(this))) {
             return new Result(this, TradeResult.CANCELLED);
         }
 
@@ -149,7 +143,7 @@ public class Trade {
         setState(TradeState.ENDED);
         LogUtils.saveLog(result.tradeLog);
 
-        SafeTrade.EVENT_BUS.post(new TradeEvent.Executed.Success(result));
+        Bukkit.getPluginManager().callEvent(new TradeEvent.Executed.Success(result));
 
         return result;
     }
@@ -162,8 +156,8 @@ public class Trade {
     private Result handleTrade() {
         Side side0 = getSides()[0];
         Side side1 = getSides()[1];
-        PlayerStorage storage0 = Tracker.getOrCreateStorage(side0.getUser().get());
-        PlayerStorage storage1 = Tracker.getOrCreateStorage(side1.getUser().get());
+        PlayerStorage storage0 = Tracker.getOrCreateStorage(side0.getOfflinePlayer().get());
+        PlayerStorage storage1 = Tracker.getOrCreateStorage(side1.getOfflinePlayer().get());
 
         // Handles possible evolutions
         TradeEvolutionWrapper evolutionWrapper = new TradeEvolutionWrapper(this);
@@ -175,7 +169,7 @@ public class Trade {
 
         // Requires scheduler as some calls come through Sponge's inventory events
         // and will cause horrible errors (Phase Stack errors, yuck!).
-        Sponge.getScheduler().createTaskBuilder().execute(() -> {
+        Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), () -> {
             sides[0].getPlayer().ifPresent(player -> {
                 player.setMessageChannel(MessageChannel.TO_ALL);
                 player.closeInventory();
@@ -184,7 +178,7 @@ public class Trade {
                 player.setMessageChannel(MessageChannel.TO_ALL);
                 player.closeInventory();
             });
-        }).delayTicks(1).submit(SafeTrade.getPlugin());
+        });
 
         return new Trade.Result(this, evolutionResult, TradeResult.SUCCESS);
     }
@@ -199,7 +193,7 @@ public class Trade {
 
         // Requires schedular as some calls come through Sponge's inventory events
         // and will cause horrible errors (Phase Stack errors, yuck!).
-        Sponge.getScheduler().createTaskBuilder().execute(() -> {
+        Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), () -> {
             sides[0].getPlayer().ifPresent(player -> {
                 player.setMessageChannel(MessageChannel.TO_ALL);
                 player.closeInventory();
@@ -208,10 +202,10 @@ public class Trade {
                 player.setMessageChannel(MessageChannel.TO_ALL);
                 player.closeInventory();
             });
-        }).delayTicks(1).submit(SafeTrade.getPlugin());
+        });
 
         setState(TradeState.ENDED);
-        SafeTrade.EVENT_BUS.post(new TradeEvent.Cancelled(new Trade.Result(this, TradeResult.CANCELLED)));
+        Bukkit.getPluginManager().callEvent(new TradeEvent.Cancelled(new Trade.Result(this, TradeResult.CANCELLED)));
     }
 
     /**
@@ -221,7 +215,7 @@ public class Trade {
      */
     public void unloadToStorages() {
         for (Side side : sides) {
-            PlayerStorage storage = Tracker.getOrCreateStorage(side.getUser().get());
+            PlayerStorage storage = Tracker.getOrCreateStorage(side.getOfflinePlayer().get());
             side.vault.unloadToStorage(storage);
         }
     }
@@ -238,7 +232,7 @@ public class Trade {
         viewers.removeIf(p -> p.getUniqueId().equals(player.getUniqueId()));
         viewers.add(player);
         if (openInventory) {
-            Sponge.getScheduler().createTaskBuilder().execute(() -> player.openInventory(tradeInventory)).delayTicks(1).submit(SafeTrade.getPlugin());
+            Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), () -> player.openInventory(tradeInventory));
         }
     }
 
@@ -253,7 +247,7 @@ public class Trade {
     public void removeViewer(Player player, boolean closeInventory) {
         viewers.removeIf(p -> p.getUniqueId().equals(player.getUniqueId()));
         if (closeInventory) {
-            Sponge.getScheduler().createTaskBuilder().execute(player::closeInventory).delayTicks(1).submit(SafeTrade.getPlugin());
+            Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), player::closeInventory);
         }
     }
 
@@ -285,22 +279,22 @@ public class Trade {
     }
 
     /**
-     * Sends a {@link Text} message to both trade participants.
+     * Sends a {@link BaseComponent} message to both trade participants.
      *
      * @param text The message
      */
-    public void sendMessage(Text text) {
+    public void sendMessage(BaseComponent[] text) {
         for (Side side : getSides()) {
             side.getPlayer().ifPresent(player -> SafeTrade.sendMessageToPlayer(player, PrefixType.SAFETRADE, text));
         }
     }
 
     /**
-     * Sends a {@link Text} message to the trade's {@link TradeChannel}.
+     * Sends a {@link BaseComponent} message to the trade's {@link TradeChannel}.
      *
      * @param text The message
      */
-    public void sendChannelMessage(Text text) {
+    public void sendChannelMessage(BaseComponent[] text) {
         tradeChannel.send(text);
     }
 
@@ -331,7 +325,7 @@ public class Trade {
                     if (item.equalTo(ItemUtils.Main.getReady()) && state == TradeState.TRADING) {
                         side.setReady(true);
                         side.vault.setLocked(true);
-                        Sponge.getScheduler().createTaskBuilder().execute(() -> {
+                        Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), () -> {
                             if (side.getOtherSide().isReady() && !side.getOtherSide().isPaused()) {
                                 setState(TradeState.WAITING_FOR_CONFIRMATION);
                                 side.changeInventory(InventoryType.OVERVIEW);
@@ -340,55 +334,55 @@ public class Trade {
                             else {
                                 reformatInventory();
                             }
-                        }).delayTicks(1).submit(SafeTrade.getPlugin());
+                        });
                     }
                     else if (item.equalTo(ItemUtils.Main.getNotReady()) && state == TradeState.TRADING) {
                         side.setReady(false);
                         side.vault.setLocked(false);
-                        Sponge.getScheduler().createTaskBuilder().execute(this::reformatInventory).delayTicks(1).submit(SafeTrade.getPlugin());
+                        Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), this::reformatInventory);
                     }
                     else if (item.equalTo(ItemUtils.Main.getPause()) && state == TradeState.TRADING) {
-                        Sponge.getScheduler().createTaskBuilder().execute(() -> {
+                        Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), () -> {
                             side.changeInventory(InventoryType.NONE);
                             reformatInventory();
-                        }).delayTicks(1).submit(SafeTrade.getPlugin());
+                        });
                     }
                     else if (item.equalTo(ItemUtils.Main.getQuit()) && state == TradeState.TRADING) {
-                        sendMessage(Text.of(TextColors.GRAY, "Trade ended by " + player.getName() + "."));
-                        Sponge.getScheduler().createTaskBuilder().execute(this::forceEnd).delayTicks(1).submit(SafeTrade.getPlugin());
+                        sendMessage(BaseComponentUtils.of(ChatColor.GRAY, "Trade ended by " + player.getName() + "."));
+                        Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), this::forceEnd);
                     }
                     else if (item.equalTo(ItemUtils.Main.getMoneyStorage(side))) {
-                        Sponge.getScheduler().createTaskBuilder().execute(() -> side.changeInventory(InventoryType.MONEY)).delayTicks(1).submit(SafeTrade.getPlugin());
+                        Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), () -> side.changeInventory(InventoryType.MONEY));
                     }
                     else if (item.equalTo(ItemUtils.Main.getItemStorage(side))) {
-                        Sponge.getScheduler().createTaskBuilder().execute(() -> side.changeInventory(InventoryType.ITEM)).delayTicks(1).submit(SafeTrade.getPlugin());
+                        Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), () -> side.changeInventory(InventoryType.ITEM));
                     }
                     else if (item.equalTo(ItemUtils.Main.getPokemonStorage(side))) {
-                        Sponge.getScheduler().createTaskBuilder().execute(() -> side.changeInventory(InventoryType.POKEMON)).delayTicks(1).submit(SafeTrade.getPlugin());
+                        Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), () -> side.changeInventory(InventoryType.POKEMON));
                     }
                     else if (item.equalTo(ItemUtils.Main.getItemStorage(otherSide))) {
-                        Sponge.getScheduler().createTaskBuilder().execute(() -> otherSide.changeInventoryForViewer(player, InventoryType.ITEM)).delayTicks(1).submit(SafeTrade.getPlugin());
+                        Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), () -> otherSide.changeInventoryForViewer(player, InventoryType.ITEM));
                     }
                     else if (item.equalTo(ItemUtils.Main.getPokemonStorage(otherSide))) {
-                        Sponge.getScheduler().createTaskBuilder().execute(() -> otherSide.changeInventoryForViewer(player, InventoryType.POKEMON)).delayTicks(1).submit(SafeTrade.getPlugin());
+                        Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), () -> otherSide.changeInventoryForViewer(player, InventoryType.POKEMON));
                     }
                 }
                 // Viewers can use these buttons
                 else {
                     // Side 1
                     if (item.equalTo(ItemUtils.Main.getItemStorage(sides[0]))) {
-                        Sponge.getScheduler().createTaskBuilder().execute(() -> sides[0].changeInventoryForViewer(player, InventoryType.ITEM)).delayTicks(1).submit(SafeTrade.getPlugin());
+                        Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), () -> sides[0].changeInventoryForViewer(player, InventoryType.ITEM));
                     }
                     else if (item.equalTo(ItemUtils.Main.getPokemonStorage(sides[0]))) {
-                        Sponge.getScheduler().createTaskBuilder().execute(() -> sides[0].changeInventoryForViewer(player, InventoryType.POKEMON)).delayTicks(1).submit(SafeTrade.getPlugin());
+                        Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), () -> sides[0].changeInventoryForViewer(player, InventoryType.POKEMON));
                     }
 
                     // Side 2
                     else if (item.equalTo(ItemUtils.Main.getItemStorage(sides[1]))) {
-                        Sponge.getScheduler().createTaskBuilder().execute(() -> sides[1].changeInventoryForViewer(player, InventoryType.ITEM)).delayTicks(1).submit(SafeTrade.getPlugin());
+                        Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), () -> sides[1].changeInventoryForViewer(player, InventoryType.ITEM));
                     }
                     else if (item.equalTo(ItemUtils.Main.getPokemonStorage(sides[1]))) {
-                        Sponge.getScheduler().createTaskBuilder().execute(() -> sides[1].changeInventoryForViewer(player, InventoryType.POKEMON)).delayTicks(1).submit(SafeTrade.getPlugin());
+                        Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), () -> sides[1].changeInventoryForViewer(player, InventoryType.POKEMON));
                     }
                 }
             });
@@ -453,7 +447,7 @@ public class Trade {
             }
             // Middle border (Currently is filler)
             else if (i == 13 || i == 22 || i == 31 || i == 40) {
-                slot.set(ItemUtils.Other.getFiller(DyeColors.BLACK));
+                slot.set(ItemUtils.Other.getFiller(DyeColor.BLACK));
             }
             // Ready
             else if (i == 48) {
@@ -470,7 +464,7 @@ public class Trade {
 
             // Filler
             else if (i <= 53) {
-                slot.set(ItemUtils.Other.getFiller(DyeColors.BLACK));
+                slot.set(ItemUtils.Other.getFiller(DyeColor.BLACK));
             }
         });
     }

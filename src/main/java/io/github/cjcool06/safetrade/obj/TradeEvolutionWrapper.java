@@ -7,6 +7,8 @@ import com.pixelmonmod.pixelmon.api.events.PixelmonReceivedEvent;
 import com.pixelmonmod.pixelmon.api.pokemon.LearnMoveController;
 import com.pixelmonmod.pixelmon.api.pokemon.Pokemon;
 import com.pixelmonmod.pixelmon.api.pokemon.PokemonSpec;
+import com.pixelmonmod.pixelmon.api.pokemon.stats.evolution.types.TradeEvolution;
+import com.pixelmonmod.pixelmon.api.registries.PixelmonSpecies;
 import com.pixelmonmod.pixelmon.api.storage.PokemonStorage;
 import com.pixelmonmod.pixelmon.battles.BattleRegistry;
 import com.pixelmonmod.pixelmon.battles.attacks.Attack;
@@ -17,19 +19,20 @@ import com.pixelmonmod.pixelmon.comm.EnumUpdateType;
 import com.pixelmonmod.pixelmon.comm.packetHandlers.OpenReplaceMoveScreen;
 import com.pixelmonmod.pixelmon.config.PixelmonEntityList;
 import com.pixelmonmod.pixelmon.config.PixelmonItemsPokeballs;
-import com.pixelmonmod.pixelmon.entities.pixelmon.EntityPixelmon;
+import com.pixelmonmod.pixelmon.entities.pixelmon.PixelmonEntity;
+import com.pixelmonmod.pixelmon.entities.pixelmon.PixelmonEntity;
 import com.pixelmonmod.pixelmon.entities.pixelmon.abilities.MirrorArmor;
 import com.pixelmonmod.pixelmon.entities.pixelmon.abilities.Pressure;
 import com.pixelmonmod.pixelmon.entities.pixelmon.stats.BaseStats;
 import com.pixelmonmod.pixelmon.entities.pixelmon.stats.Moveset;
-import com.pixelmonmod.pixelmon.entities.pixelmon.stats.evolution.types.TradeEvolution;
-import com.pixelmonmod.pixelmon.enums.EnumSpecies;
+import com.pixelmonmod.pixelmon.api.pokemon.species.Species;
 import com.pixelmonmod.pixelmon.enums.heldItems.EnumHeldItems;
-import com.pixelmonmod.pixelmon.storage.PlayerPartyStorage;
+import com.pixelmonmod.pixelmon.api.storage.PlayerPartyStorage;
 import io.github.cjcool06.safetrade.SafeTrade;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraftforge.fml.server.ServerLifecycleHooks;
+import org.bukkit.entity.Player;
 
 import java.util.*;
 
@@ -53,7 +56,7 @@ public class TradeEvolutionWrapper {
      *
      * If the a side is offline the Pokemon they hold cannot evolve.
      * This is due to me wanting to fire Pixelmon's evolution and received event for better
-     * API support, and that requires an {@link EntityPlayerMP}.
+     * API support, and that requires an {@link net.minecraft.entity.player.ServerPlayerEntity}.
      *
      * @return The result
      */
@@ -65,7 +68,7 @@ public class TradeEvolutionWrapper {
 
             for (Pokemon pokemon : getPossibleEvolutions(side)) {
                 // The player will always be online at this point
-                EntityPixelmon pixelmon = pokemon.getOrSpawnPixelmon((EntityPlayerMP)side.getPlayer().get());
+                PixelmonEntity pixelmon = pokemon.getOrSpawnPixelmon((EntityPlayerMP)side.getPlayer().get());
                 Map<Pokemon, Pokemon> map = doEvolution(side, pixelmon);
                 pixelmon.unloadEntity();
 
@@ -93,7 +96,9 @@ public class TradeEvolutionWrapper {
 
         if (side.getPlayer().isPresent()) {
             for (Pokemon pokemon : side.vault.getAllPokemon()) {
-                EntityPixelmon pixelmon = pokemon.getOrSpawnPixelmon((EntityPlayerMP) side.getPlayer().get());
+                Player bukkitPlayer = side.getPlayer().get();
+                ServerPlayerEntity forgePlayer = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(bukkitPlayer.getUniqueId());
+                PixelmonEntity pixelmon = pokemon.getOrSpawnPixelmon(forgePlayer);
 
                 if (pixelmon != null) {
                     if (canDoEvolution(side, pixelmon)) {
@@ -108,12 +113,12 @@ public class TradeEvolutionWrapper {
     }
 
     /**
-     * Gets whether the wrapper is able to trade evolve the {@link EntityPixelmon}.
+     * Gets whether the wrapper is able to trade evolve the {@link PixelmonEntity}.
      *
      * @param pixelmon The Pixelmon
      * @return True if an evolution can take place
      */
-    private boolean canDoEvolution(Side side, EntityPixelmon pixelmon) {
+    private boolean canDoEvolution(Side side, PixelmonEntity pixelmon) {
         if (side.getPlayer().isPresent()) {
             return getSpeciesToEvolveWith(pixelmon, side.getOtherSide()) != null;
         }
@@ -122,18 +127,18 @@ public class TradeEvolutionWrapper {
     }
 
     /**
-     * Attempts to evolve the {@link EntityPixelmon}.
+     * Attempts to evolve the {@link PixelmonEntity}.
      *
      * @param pixelmon The Pixelmon
      * @return True if an evolution is scheduled, false if no evolutions were possible
      */
-    private Map<Pokemon, Pokemon> doEvolution(Side side, EntityPixelmon pixelmon) {
+    private Map<Pokemon, Pokemon> doEvolution(Side side, PixelmonEntity pixelmon) {
         Map<Pokemon, Pokemon> map = new HashMap<>();
-        EnumSpecies species = getSpeciesToEvolveWith(pixelmon, side.getOtherSide());
+        Species species = getSpeciesToEvolveWith(pixelmon, side.getOtherSide());
         if (species != null) {
             TradeEvolution evolution = getEvolution(pixelmon, species);
             if (evolution != null) {
-                EntityPixelmon pre = (EntityPixelmon) PixelmonEntityList.createEntityFromNBT(pixelmon.writeToNBT(new NBTTagCompound()), pixelmon.getEntityWorld());
+                PixelmonEntity pre = (PixelmonEntity) PixelmonEntityList.createEntityFromNBT(pixelmon.writeToNBT(new NBTTagCompound()), pixelmon.getEntityWorld());
                 pixelmon.evolve(evolution.to);
                 this.checkShedinja(pixelmon);
                 this.checkForLearnMoves((EntityPlayerMP) side.getPlayer().get(), pixelmon);
@@ -141,7 +146,7 @@ public class TradeEvolutionWrapper {
                 this.checkCorvisquire(pixelmon);
                 evolution.finishedEvolving(pixelmon);
                 Pixelmon.EVENT_BUS.post(new EvolveEvent.PostEvolve((EntityPlayerMP) side.getPlayer().get(), pre, evolution, pixelmon));
-                if (!pixelmon.getPokemonName().equals(EnumSpecies.Shedinja.name)) {
+                if (!pixelmon.getPokemonName().equals(PixelmonSpecies.Shedinja.name)) {
                     Pixelmon.EVENT_BUS.post(new PixelmonReceivedEvent((EntityPlayerMP) side.getPlayer().get(), ReceiveType.Evolution, pixelmon.getPokemonData()));
                 }
                 map.put(pre.getPokemonData(), pixelmon.getPokemonData());
@@ -152,8 +157,8 @@ public class TradeEvolutionWrapper {
         return map;
     }
 
-    private void checkCorvisquire(EntityPixelmon pixelmon) {
-        if (pixelmon.getBaseStats().getSpecies() == EnumSpecies.Corvisquire) {
+    private void checkCorvisquire(PixelmonEntity pixelmon) {
+        if (pixelmon.getBaseStats().getSpecies() == PixelmonSpecies.Corvisquire) {
             int slot = pixelmon.getPokemonData().getAbilitySlot();
             if (slot == 0) {
                 pixelmon.getPokemonData().setAbility(new Pressure());
@@ -164,17 +169,17 @@ public class TradeEvolutionWrapper {
     }
 
     /**
-     * Gets a {@link TradeEvolution} for the {@link EntityPixelmon}, if one is present.
+     * Gets a {@link TradeEvolution} for the {@link PixelmonEntity}, if one is present.
      *
-     * The majority of this function's code was taken from EntityPixelmon#testTradeEvoltion
+     * The majority of this function's code was taken from PixelmonEntity#testTradeEvoltion
      * and slightly modified to suit my function's purpose.
      *
-     * @param pixelmon The {@link EntityPixelmon} to evolve
-     * @param with The {@link EnumSpecies} to test with
+     * @param pixelmon The {@link PixelmonEntity} to evolve
+     * @param with The {@link Species} to test with
      * @return The {@link TradeEvolution}, if present
      */
-    private TradeEvolution getEvolution(EntityPixelmon pixelmon, EnumSpecies with) {
-        if (!(pixelmon.getPokemonData().getHeldItemAsItemHeld().getHeldItemType() == EnumHeldItems.everStone)) {
+    private TradeEvolution getEvolution(PixelmonEntity pixelmon, Species with) {
+        if (!(pixelmon.getPokemon().getHeldItemAsItemHeld().getHeldItemType() == EnumHeldItems.everStone)) {
             ArrayList<TradeEvolution> tradeEvolutions = pixelmon.getPokemonData().getEvolutions(TradeEvolution.class);
             Iterator<TradeEvolution> iter = tradeEvolutions.iterator();
 
@@ -191,13 +196,13 @@ public class TradeEvolutionWrapper {
     }
 
     /**
-     * Gets an {@link EnumSpecies} from the other side that can trade evolve with the {@link EntityPixelmon}.
+     * Gets an {@link Species} from the other side that can trade evolve with the {@link PixelmonEntity}.
      *
      * @param pixelmonToEvolve The Pixelmon to be evolved
      * @param otherSide The other side
      * @return The species, if present
      */
-    private EnumSpecies getSpeciesToEvolveWith(EntityPixelmon pixelmonToEvolve, Side otherSide) {
+    private Species getSpeciesToEvolveWith(PixelmonEntity pixelmonToEvolve, Side otherSide) {
         for (Pokemon p : otherSide.vault.getAllPokemon()) {
             if (getEvolution(pixelmonToEvolve, p.getSpecies()) != null) {
                 return p.getSpecies();
@@ -207,8 +212,8 @@ public class TradeEvolutionWrapper {
         // Returns a random species if it can induce evolving
         // For example, side1 trades haunter and side2 doesn't trade anything
         if (otherSide.vault.getAllPokemon().size() == 0) {
-            if (getEvolution(pixelmonToEvolve, EnumSpecies.Abra) != null) {
-                return EnumSpecies.Abra;
+            if (getEvolution(pixelmonToEvolve, PixelmonSpecies.ABRA) != null) {
+                return PixelmonSpecies.ABRA;
             }
         }
 
@@ -219,13 +224,13 @@ public class TradeEvolutionWrapper {
     //  Pixelmon code from EvolutionQuery
     //
 
-    private void checkShedinja(EntityPixelmon pixelmon) {
-        if (pixelmon.getBaseStats().pokemon == EnumSpecies.Ninjask) {
+    private void checkShedinja(PixelmonEntity pixelmon) {
+        if (pixelmon.getBaseStats().pokemon == PixelmonSpecies.Ninjask) {
             PokemonStorage party = pixelmon.getPokemonData().getStorageAndPosition().getFirst();
             if (party.hasSpace()) {
                 EntityPlayerMP player = party instanceof PlayerPartyStorage ? ((PlayerPartyStorage)party).getPlayer() : null;
                 if (player != null && player.inventory.clearMatchingItems(PixelmonItemsPokeballs.pokeBall, 0, 1, null) == 1) {
-                    Pokemon shedinja = Pixelmon.pokemonFactory.create(new PokemonSpec(new String[]{EnumSpecies.Shedinja.name, "lvl:" + pixelmon.getPokemonData().getLevel()}));
+                    Pokemon shedinja = Pixelmon.pokemonFactory.create(new PokemonSpec(new String[]{PixelmonSpecies.Shedinja.name, "lvl:" + pixelmon.getPokemonData().getLevel()}));
                     shedinja.getMoveset().clear();
                     shedinja.getMoveset().addAll(pixelmon.getPokemonData().getMoveset());
                     shedinja.setStatus((StatusPersist)pixelmon.getPokemonData().getStatus().copy());
@@ -243,7 +248,7 @@ public class TradeEvolutionWrapper {
         }
     }
 
-    private void checkForLearnMoves(EntityPlayerMP player, EntityPixelmon pixelmon) {
+    private void checkForLearnMoves(EntityPlayerMP player, PixelmonEntity pixelmon) {
         if (pixelmon.getBaseStats() != null) {
             int level = pixelmon.getLvl().getLevel();
             if (level == 1) {
@@ -273,7 +278,7 @@ public class TradeEvolutionWrapper {
         }
     }
 
-    private void checkForEvolutionMoves(EntityPlayerMP player, EntityPixelmon pixelmon, TradeEvolution evolution) {
+    private void checkForEvolutionMoves(EntityPlayerMP player, PixelmonEntity pixelmon, TradeEvolution evolution) {
         if (evolution.moves != null && !evolution.moves.isEmpty()) {
             List<AttackBase> evoMoves = new ArrayList();
             Iterator var2 = evolution.moves.iterator();

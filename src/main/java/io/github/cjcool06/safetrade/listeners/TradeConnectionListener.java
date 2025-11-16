@@ -1,22 +1,22 @@
 package io.github.cjcool06.safetrade.listeners;
 
 import io.github.cjcool06.safetrade.api.enums.TradeState;
-import io.github.cjcool06.safetrade.api.events.trade.ConnectionEvent;
+import io.github.cjcool06.safetrade.api.events.trade.connection.ConnectionLeftEvent;
 import io.github.cjcool06.safetrade.obj.Side;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import org.spongepowered.api.Sponge;
-import org.spongepowered.api.text.Text;
-import org.spongepowered.api.text.action.TextActions;
-import org.spongepowered.api.text.format.TextColors;
+import io.github.cjcool06.safetrade.utils.Text;
+import net.md_5.bungee.api.chat.ClickEvent;
+import org.bukkit.ChatColor;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
 
-public class TradeConnectionListener {
+public class TradeConnectionListener implements Listener {
 
-    @SubscribeEvent
-    public void onLeave(ConnectionEvent.Left event) {
-        Side side = event.side;
+    @EventHandler
+    public void onLeave(ConnectionLeftEvent event) {
+        Side side = event.getSide();
         if (!side.parentTrade.getState().equals(TradeState.ENDED)) {
-            event.side.sendMessage(Text.builder().append(Text.of(TextColors.GOLD, "You can resume the trade by clicking here or typing /safetrade open"))
-                    .onClick(TextActions.executeCallback(dummySrc -> Sponge.getCommandManager().process(side.getPlayer().get(), "safetrade open"))).build());
+            side.getPlayer().ifPresent(player -> player.spigot().sendMessage(Text.builder().append(Text.of(ChatColor.GOLD, "You can resume the trade by clicking here or typing /safetrade open"))
+                    .event(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/safetrade open")).create()));
         }
     }
 }

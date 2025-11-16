@@ -4,11 +4,11 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import io.github.cjcool06.safetrade.SafeTrade;
 import io.github.cjcool06.safetrade.api.enums.CommandType;
-import org.spongepowered.api.Sponge;
-import org.spongepowered.api.entity.living.player.Player;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 
 /**
- * A CommandWrapper encapsulates the functionality of Sponge's command execution
+ * A CommandWrapper encapsulates the functionality of Bukkit's command execution
  * that suits {@link PlayerStorage}.
  *
  * This wrapper is serialisable.
@@ -23,10 +23,10 @@ public class CommandWrapper {
     }
 
     /**
-     * Execute the command as {@link org.spongepowered.api.command.source.ConsoleSource}.
+     * Execute the command as {@link org.bukkit.command.ConsoleCommandSender}.
      */
     public void consoleExecute() {
-        Sponge.getCommandManager().process(Sponge.getServer().getConsole(), cmd);
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
     }
 
     /**
@@ -35,7 +35,7 @@ public class CommandWrapper {
      * @param player The player
      */
     public void sudoExecute(Player player) {
-        Sponge.getCommandManager().process(player, cmd);
+        Bukkit.dispatchCommand(player, cmd);
     }
 
     public void toContainer(JsonObject jsonObject) {
@@ -50,7 +50,7 @@ public class CommandWrapper {
 
             return new CommandWrapper(cmd, commandType);
         } catch (Exception e) {
-            SafeTrade.getLogger().warn("There was a problem deserialising a CommandWrapper from a container." +
+            SafeTrade.getPluginLogger().warning("There was a problem deserialising a CommandWrapper from a container." +
                     "\n" + e.getMessage() + "\n");
             e.printStackTrace();
             return null;

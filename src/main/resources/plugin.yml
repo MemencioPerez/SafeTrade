@@ -1,0 +1,7 @@
+name: SafeTrade
+version: 1.0.0
+description: Trade Pokemon, Items, and Money safely
+authors: [CJcool06, Memencio]
+main: io.github.cjcool06.safetrade.SafeTrade
+depend: [ Vault, NBTAPI ]
+api-version: '1.16'

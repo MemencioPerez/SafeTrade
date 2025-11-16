@@ -1,29 +1,29 @@
 package io.github.cjcool06.safetrade.api.enums;
 
-import org.spongepowered.api.text.Text;
-import org.spongepowered.api.text.format.TextColors;
-import org.spongepowered.api.text.format.TextStyles;
+import io.github.cjcool06.safetrade.utils.Text;
+import net.md_5.bungee.api.chat.BaseComponent;
+import net.md_5.bungee.api.ChatColor;
 
 public enum PrefixType {
-    SAFETRADE(Text.of(TextColors.DARK_AQUA, TextStyles.BOLD, "SafeTrade", TextColors.LIGHT_PURPLE, " >> ")),
-    STORAGE(Text.of(TextColors.DARK_AQUA, TextStyles.BOLD, "SafeTrade Storage", TextColors.LIGHT_PURPLE, " >> ")),
-    LOG(Text.of(TextColors.DARK_AQUA, TextStyles.BOLD, "SafeTrade Log", TextColors.LIGHT_PURPLE, " >> ")),
-    OVERVIEW(Text.of(TextColors.DARK_AQUA, TextStyles.BOLD, "SafeTrade Overview", TextColors.LIGHT_PURPLE, " >> ")),
-    CONFIG(Text.of(TextColors.DARK_AQUA, TextStyles.BOLD, "SafeTrade Config", TextColors.LIGHT_PURPLE, " >> ")),
+    SAFETRADE(Text.of(ChatColor.DARK_AQUA, ChatColor.BOLD, "SafeTrade", ChatColor.LIGHT_PURPLE, " >> ")),
+    STORAGE(Text.of(ChatColor.DARK_AQUA, ChatColor.BOLD, "SafeTrade Storage", ChatColor.LIGHT_PURPLE, " >> ")),
+    LOG(Text.of(ChatColor.DARK_AQUA, ChatColor.BOLD, "SafeTrade Log", ChatColor.LIGHT_PURPLE, " >> ")),
+    OVERVIEW(Text.of(ChatColor.DARK_AQUA, ChatColor.BOLD, "SafeTrade Overview", ChatColor.LIGHT_PURPLE, " >> ")),
+    CONFIG(Text.of(ChatColor.DARK_AQUA, ChatColor.BOLD, "SafeTrade Config", ChatColor.LIGHT_PURPLE, " >> ")),
     NONE(Text.of());
 
-    private Text prefix;
+    private BaseComponent[] prefix;
 
-    PrefixType(Text prefix) {
+    PrefixType(BaseComponent[] prefix) {
         this.prefix = prefix;
     }
 
     /**
-     * Gets the prefix of the type as a {@link Text}.
+     * Gets the prefix of the type as a {@link BaseComponent}.
      *
      * @return The prefix
      */
-    public Text getPrefix() {
+    public BaseComponent[] getPrefix() {
         return prefix;
     }
 }

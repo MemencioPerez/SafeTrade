@@ -7,14 +7,14 @@ import io.github.cjcool06.safetrade.managers.DataManager;
 import io.github.cjcool06.safetrade.obj.Log;
 import io.github.cjcool06.safetrade.obj.Side;
 import io.github.cjcool06.safetrade.obj.Trade;
-import org.spongepowered.api.Sponge;
+import org.bukkit.Bukkit;
 import org.spongepowered.api.data.key.Keys;
-import org.spongepowered.api.entity.living.player.User;
-import org.spongepowered.api.item.inventory.ItemStackSnapshot;
-import org.spongepowered.api.service.economy.Currency;
-import org.spongepowered.api.text.Text;
+import org.bukkit.OfflinePlayer;
+import de.tr7zw.nbtapi.iface.ReadWriteNBT;
+import io.github.cjcool06.safetrade.economy.currency.Currency;
+import net.md_5.bungee.api.chat.BaseComponent;
 import org.spongepowered.api.text.action.TextActions;
-import org.spongepowered.api.text.format.TextColors;
+import net.md_5.bungee.api.ChatColor;
 import org.spongepowered.api.text.serializer.TextSerializers;
 
 import java.time.LocalDateTime;
@@ -29,10 +29,10 @@ public class LogUtils {
      * @param log The trade log
      */
     public static void saveLog(Log log) {
-        Sponge.getScheduler().createTaskBuilder().execute(() -> {
+        Bukkit.getScheduler().runTaskAsynchronously(SafeTrade.getPlugin(), () -> {
             DataManager.addLog(log.getParticipant(), log);
             DataManager.addLog(log.getOtherParticipant(), log);
-        }).async().submit(SafeTrade.getPlugin());
+        });
     }
 
     /**
@@ -43,10 +43,10 @@ public class LogUtils {
     @Deprecated
     public static void logAndSave(Trade trade) {
         Log log = new Log(trade);
-        Sponge.getScheduler().createTaskBuilder().execute(() -> {
+        Bukkit.getScheduler().runTaskAsynchronously(SafeTrade.getPlugin(), () -> {
             DataManager.addLog(log.getParticipant(), log);
             DataManager.addLog(log.getOtherParticipant(), log);
-        }).async().submit(SafeTrade.getPlugin());
+        });
     }
 
     /**
@@ -57,7 +57,7 @@ public class LogUtils {
      * @param participant1 - The second participant of the trade
      * @return - List of logs that had both participants
      */
-    public static ArrayList<Log> getLogsOf(User participant0, User participant1) {
+    public static ArrayList<Log> getLogsOf(OfflinePlayer participant0, OfflinePlayer participant1) {
         ArrayList<Log> logs = new ArrayList<>();
         ArrayList<Log> logsParticipant0 = DataManager.getLogs(participant0);
         for (Log log : logsParticipant0) {
@@ -74,27 +74,27 @@ public class LogUtils {
         List<String> contents = new ArrayList<>();
         Text[] extentedLogs = getExtendedLogs(trade);
         contents.add(TextSerializers.JSON.serialize(
-                Text.builder().append(Text.of(TextColors.LIGHT_PURPLE, "[" + Log.getFormatter().format(Utils.convertToUTC(LocalDateTime.now())) + " UTC] "))
-                        .onHover(TextActions.showText(Text.of(TextColors.GRAY, "Day/Month/Year Hour:Minute"))).build()));
+                Text.builder().append(Text.of(ChatColor.LIGHT_PURPLE, "[" + Log.getFormatter().format(Utils.convertToUTC(LocalDateTime.now())) + " UTC] "))
+                        .onHover(TextActions.showText(Text.of(ChatColor.GRAY, "Day/Month/Year Hour:Minute"))).build()));
 
         // Participant 0
-        User p0 = trade.getSides()[0].getUser().get();
+        OfflinePlayer p0 = trade.getSides()[0].getOfflinePlayer().get();
         contents.add(TextSerializers.JSON.serialize(
-                Text.builder().append(Text.of(TextColors.AQUA, p0.getName()))
-                        .onHover(TextActions.showText(Text.of(TextColors.GRAY, "Click here to see " + p0.getName() + "'s extended log for this trade"))).build()));
+                Text.builder().append(Text.of(ChatColor.AQUA, p0.getName()))
+                        .onHover(TextActions.showText(Text.of(ChatColor.GRAY, "Click here to see " + p0.getName() + "'s extended log for this trade"))).build()));
         contents.add(TextSerializers.JSON.serialize(
-                Text.of(TextColors.GREEN, p0.getName() + "'s Extended Log ")));
+                Text.of(ChatColor.GREEN, p0.getName() + "'s Extended Log ")));
         contents.add(TextSerializers.JSON.serialize(extentedLogs[0]));
 
-        contents.add(TextSerializers.JSON.serialize(Text.of(TextColors.DARK_AQUA, " & ")));
+        contents.add(TextSerializers.JSON.serialize(Text.of(ChatColor.DARK_AQUA, " & ")));
 
         // Participant 1
-        User p1 = trade.getSides()[1].getUser().get();
+        OfflinePlayer p1 = trade.getSides()[1].getOfflinePlayer().get();
         contents.add(TextSerializers.JSON.serialize(
-                Text.builder().append(Text.of(TextColors.AQUA, p1.getName()))
-                        .onHover(TextActions.showText(Text.of(TextColors.GRAY, "Click here to see " + p1.getName() + "'s extended log for this trade"))).build()));
+                Text.builder().append(Text.of(ChatColor.AQUA, p1.getName()))
+                        .onHover(TextActions.showText(Text.of(ChatColor.GRAY, "Click here to see " + p1.getName() + "'s extended log for this trade"))).build()));
         contents.add(TextSerializers.JSON.serialize(
-                Text.of(TextColors.GREEN, p1.getName() + "'s Extended Log ")));
+                Text.of(ChatColor.GREEN, p1.getName() + "'s Extended Log ")));
         contents.add(TextSerializers.JSON.serialize(extentedLogs[1]));
 
 
@@ -105,7 +105,7 @@ public class LogUtils {
      * Creates the in-depth log text.
      *
      * @param trade - Trade to log
-     * @return - Text array corresponding to trade participant indexes. For example, texts[0] is for trade.participants[0]
+     * @return - BaseComponent[] array corresponding to trade participant indexes. For example, texts[0] is for trade.participants[0]
      */
     @Deprecated
     private static Text[] getExtendedLogs(Trade trade) {
@@ -119,27 +119,27 @@ public class LogUtils {
 
         // TODO: Hover over the money to see their balance: before -> after
         builder1.append(Text.of("Money: "))
-                .color(TextColors.DARK_AQUA)
-                .append(Text.builder().append(Text.of(TextColors.AQUA, side0.vault.account.getBalance(currency).intValue()))
+                .color(ChatColor.DARK_AQUA)
+                .append(Text.builder().append(Text.of(ChatColor.AQUA, side0.vault.account.getBalance(currency).intValue()))
                         .onHover(TextActions.showText(Text.of()))
                         .build())
                 .build();
         builder2.append(Text.of("Money: "))
-                .color(TextColors.DARK_AQUA)
-                .append(Text.builder().append(Text.of(TextColors.AQUA, side1.vault.account.getBalance(currency).intValue())).build())
+                .color(ChatColor.DARK_AQUA)
+                .append(Text.builder().append(Text.of(ChatColor.AQUA, side1.vault.account.getBalance(currency).intValue())).build())
                 .build();
 
         builder1.append(Text.of("\n" + "Pokemon:"))
-                .color(TextColors.DARK_AQUA)
+                .color(ChatColor.DARK_AQUA)
                 .build();
         builder2.append(Text.of("\n" + "Pokemon:"))
-                .color(TextColors.DARK_AQUA)
+                .color(ChatColor.DARK_AQUA)
                 .build();
         for (Pokemon pixelmon : side0.vault.getAllPokemon()) {
             Text.Builder pokemonInfo = Text.builder();
             int count = 0;
-            List<Text> loreTexts = Utils.getPokemonLore(pixelmon);
-            for (Text text : loreTexts) {
+            List<BaseComponent[]> loreTexts = Utils.getPokemonLore(pixelmon);
+            for (BaseComponent[] text : loreTexts) {
                 count++;
                 pokemonInfo.append(text);
                 if (count != loreTexts.size()) {
@@ -147,7 +147,7 @@ public class LogUtils {
                 }
             }
             builder1.append(Text.builder()
-                    .append(Text.of(TextColors.AQUA, "\n" + pixelmon.getSpecies().getLocalizedName() + (pixelmon.isEgg() && !Config.showEggStats ? " Egg" : "")))
+                    .append(Text.of(ChatColor.AQUA, "\n" + pixelmon.getSpecies().getLocalizedName() + (pixelmon.isEgg() && !Config.showEggStats ? " Egg" : "")))
                     .onHover(TextActions.showText(pokemonInfo.build()))
                     .build())
                     .build();
@@ -155,8 +155,8 @@ public class LogUtils {
         for (Pokemon pixelmon : side1.vault.getAllPokemon()) {
             Text.Builder pokemonInfo = Text.builder();
             int count = 0;
-            List<Text> loreTexts = Utils.getPokemonLore(pixelmon);
-            for (Text text : loreTexts) {
+            List<BaseComponent[]> loreTexts = Utils.getPokemonLore(pixelmon);
+            for (BaseComponent[] text : loreTexts) {
                 count++;
                 pokemonInfo.append(text);
                 if (count != loreTexts.size()) {
@@ -164,7 +164,7 @@ public class LogUtils {
                 }
             }
             builder2.append(Text.builder()
-                    .append(Text.of(TextColors.AQUA, "\n" + pixelmon.getSpecies().getLocalizedName() + (pixelmon.isEgg() && !Config.showEggStats ? " Egg" : "")))
+                    .append(Text.of(ChatColor.AQUA, "\n" + pixelmon.getSpecies().getLocalizedName() + (pixelmon.isEgg() && !Config.showEggStats ? " Egg" : "")))
                     .onHover(TextActions.showText(pokemonInfo.build()))
                     .build())
                     .build();
@@ -172,39 +172,39 @@ public class LogUtils {
 
         // TODO: Show items stats: durability
         builder1.append(Text.of("\n" + "Items:"))
-                .color(TextColors.DARK_AQUA)
+                .color(ChatColor.DARK_AQUA)
                 .build();
         builder2.append(Text.of("\n" + "Items:"))
-                .color(TextColors.DARK_AQUA)
+                .color(ChatColor.DARK_AQUA)
                 .build();
-        for (ItemStackSnapshot snapshot : side0.vault.getAllItems()) {
+        for (ReadWriteNBT snapshot : side0.vault.getAllItems()) {
             Text.Builder builder = Text.builder();
             snapshot.get(Keys.ITEM_ENCHANTMENTS).ifPresent(enchantments -> {
                 enchantments.forEach(enchantment -> {
-                    builder.append(Text.of(TextColors.DARK_AQUA, "Enchantments: "));
-                    builder.append(Text.of(TextColors.AQUA, "\n", enchantment.getType(), " ", enchantment.getLevel()));
+                    builder.append(Text.of(ChatColor.DARK_AQUA, "Enchantments: "));
+                    builder.append(Text.of(ChatColor.AQUA, "\n", enchantment.getType(), " ", enchantment.getLevel()));
                 });
             });
-            builder1.append(Text.builder().append(Text.of("\n", TextColors.GREEN, snapshot.getQuantity() + "x ", TextColors.AQUA, snapshot.getTranslation().get()))
+            builder1.append(Text.builder().append(Text.of("\n", ChatColor.GREEN, snapshot.getQuantity() + "x ", ChatColor.AQUA, snapshot.getTranslation().get()))
                     .onHover(TextActions.showText(builder.build()))
                     .build()).build();
             if (snapshot.get(Keys.DISPLAY_NAME).isPresent()) {
-                builder1.append(Text.builder().append(Text.of("  ", TextColors.GOLD, "[", snapshot.get(Keys.DISPLAY_NAME).get(), TextColors.GOLD, "]")).build()).build();
+                builder1.append(Text.builder().append(Text.of("  ", ChatColor.GOLD, "[", snapshot.get(Keys.DISPLAY_NAME).get(), ChatColor.GOLD, "]")).build()).build();
             }
         }
-        for (ItemStackSnapshot snapshot : side1.vault.getAllItems()) {
+        for (ReadWriteNBT snapshot : side1.vault.getAllItems()) {
             Text.Builder builder = Text.builder();
             snapshot.get(Keys.ITEM_ENCHANTMENTS).ifPresent(enchantments -> {
-                builder.append(Text.of(TextColors.DARK_AQUA, "Enchantments: "));
+                builder.append(Text.of(ChatColor.DARK_AQUA, "Enchantments: "));
                 enchantments.forEach(enchantment -> {
-                    builder.append(Text.of(TextColors.AQUA, "\n", enchantment.getType(), " ", enchantment.getLevel()));
+                    builder.append(Text.of(ChatColor.AQUA, "\n", enchantment.getType(), " ", enchantment.getLevel()));
                 });
             });
-            builder2.append(Text.builder().append(Text.of("\n", TextColors.GREEN, snapshot.getQuantity() + "x ", TextColors.AQUA, snapshot.getTranslation().get()))
+            builder2.append(Text.builder().append(Text.of("\n", ChatColor.GREEN, snapshot.getQuantity() + "x ", ChatColor.AQUA, snapshot.getTranslation().get()))
                     .onHover(TextActions.showText(builder.build()))
                     .build()).build();
             if (snapshot.get(Keys.DISPLAY_NAME).isPresent()) {
-                builder2.append(Text.builder().append(Text.of("  ", TextColors.GOLD, "[", snapshot.get(Keys.DISPLAY_NAME).get(), TextColors.GOLD, "]")).build()).build();
+                builder2.append(Text.builder().append(Text.of("  ", ChatColor.GOLD, "[", snapshot.get(Keys.DISPLAY_NAME).get(), ChatColor.GOLD, "]")).build()).build();
             }
         }
 

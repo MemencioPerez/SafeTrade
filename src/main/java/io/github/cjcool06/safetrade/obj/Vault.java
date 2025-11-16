@@ -2,37 +2,31 @@ package io.github.cjcool06.safetrade.obj;
 
 
 import com.google.common.collect.Lists;
-import com.pixelmonmod.pixelmon.Pixelmon;
 import com.pixelmonmod.pixelmon.api.pokemon.Pokemon;
-import com.pixelmonmod.pixelmon.entities.pixelmon.EntityPixelmon;
+import com.pixelmonmod.pixelmon.entities.pixelmon.PixelmonEntity;
 import io.github.cjcool06.safetrade.SafeTrade;
 import io.github.cjcool06.safetrade.api.enums.InventoryType;
 import io.github.cjcool06.safetrade.api.enums.PrefixType;
 import io.github.cjcool06.safetrade.api.enums.TradeState;
-import io.github.cjcool06.safetrade.api.events.trade.TransactionEvent;
+import io.github.cjcool06.safetrade.api.events.trade.transaction.item.*;
+import io.github.cjcool06.safetrade.api.events.trade.transaction.pokemon.*;
 import io.github.cjcool06.safetrade.helpers.InventoryHelper;
 import io.github.cjcool06.safetrade.trackers.Tracker;
+import io.github.cjcool06.safetrade.utils.BukkitEventManagerUtils;
+import io.github.cjcool06.safetrade.utils.Text;
 import io.github.cjcool06.safetrade.utils.BlacklistUtils;
 import io.github.cjcool06.safetrade.utils.ItemUtils;
-import org.spongepowered.api.Sponge;
-import org.spongepowered.api.data.type.DyeColors;
-import org.spongepowered.api.entity.living.player.Player;
-import org.spongepowered.api.event.cause.Cause;
-import org.spongepowered.api.event.cause.EventContext;
-import org.spongepowered.api.event.item.inventory.ClickInventoryEvent;
-import org.spongepowered.api.event.item.inventory.InteractInventoryEvent;
-import org.spongepowered.api.item.inventory.Inventory;
-import org.spongepowered.api.item.inventory.InventoryArchetypes;
-import org.spongepowered.api.item.inventory.ItemStack;
-import org.spongepowered.api.item.inventory.ItemStackSnapshot;
-import org.spongepowered.api.item.inventory.property.InventoryDimension;
-import org.spongepowered.api.item.inventory.property.InventoryTitle;
-import org.spongepowered.api.item.inventory.property.SlotIndex;
-import org.spongepowered.api.item.inventory.transaction.InventoryTransactionResult;
-import org.spongepowered.api.service.economy.Currency;
-import org.spongepowered.api.service.economy.account.Account;
-import org.spongepowered.api.text.Text;
-import org.spongepowered.api.text.format.TextColors;
+import net.kyori.adventure.text.Component;
+import org.bukkit.Bukkit;
+import org.bukkit.DyeColor;
+import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import de.tr7zw.nbtapi.iface.ReadWriteNBT;
+import io.github.cjcool06.safetrade.economy.currency.Currency;
+import io.github.cjcool06.safetrade.economy.account.Account;
+import net.md_5.bungee.api.ChatColor;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -53,7 +47,7 @@ public class Vault {
         this.account = attemptAccountCreation();
 
         itemStorage = Inventory.builder()
-                .property(InventoryTitle.PROPERTY_NAME, InventoryTitle.of(Text.of(TextColors.DARK_AQUA, side.getPlayer().get().getName() + "'s Items")))
+                .property(InventoryTitle.PROPERTY_NAME, InventoryTitle.of(Text.of(ChatColor.DARK_AQUA, side.getPlayer().get().getName() + "'s Items")))
                 .property(InventoryDimension.PROPERTY_NAME, new InventoryDimension(9,6))
                 .of(InventoryArchetypes.MENU_GRID)
                 .listener(ClickInventoryEvent.class, this::handleItemStorageClick)
@@ -62,7 +56,7 @@ public class Vault {
                 .build(SafeTrade.getPlugin());
 
         pokemonStorage = Inventory.builder()
-                .property(InventoryTitle.PROPERTY_NAME, InventoryTitle.of(Text.of(TextColors.DARK_AQUA, side.getPlayer().get().getName() + "'s Pokemon")))
+                .property(InventoryTitle.PROPERTY_NAME, InventoryTitle.of(Text.of(ChatColor.DARK_AQUA, side.getPlayer().get().getName() + "'s Pokemon")))
                 .property(InventoryDimension.PROPERTY_NAME, new InventoryDimension(9,6))
                 .of(InventoryArchetypes.MENU_GRID)
                 .listener(ClickInventoryEvent.class, this::handlePokemonStorageClick)
@@ -126,7 +120,7 @@ public class Vault {
      * @return True if the item was successfully added to the inventory, false if not
      */
     public boolean addItem(ItemStack item) {
-        if (SafeTrade.EVENT_BUS.post(new TransactionEvent.Item.Add.Pre(this, item))) {
+        if (BukkitEventManagerUtils.post(new ItemAddPreTransactionEvent(this, item))) {
             return false;
         }
         Iterator<Inventory> iter = itemStorage.slots().iterator();
@@ -141,13 +135,13 @@ public class Vault {
             if (!slot.peek().isPresent()) {
                 InventoryTransactionResult result = slot.set(item);
                 if (result.getType().equals(InventoryTransactionResult.Type.SUCCESS)) {
-                    SafeTrade.EVENT_BUS.post(new TransactionEvent.Item.Add.Success(this, item));
+                    Bukkit.getPluginManager().callEvent(new ItemAddTransactionSuccessEvent(this, item));
                     return true;
                 }
             }
         }
 
-        SafeTrade.EVENT_BUS.post(new TransactionEvent.Item.Add.Fail(this, item));
+        Bukkit.getPluginManager().callEvent(new ItemAddTransactionFailEvent(this, item));
         return false;
     }
 
@@ -161,7 +155,7 @@ public class Vault {
      * @return True if the item was successfully added to the inventory, false if not
      */
     public boolean addItem(int index, ItemStack item) {
-        if (SafeTrade.EVENT_BUS.post(new TransactionEvent.Item.Add.Pre(this, item))) {
+        if (BukkitEventManagerUtils.post(new ItemAddPreTransactionEvent(this, item))) {
             return false;
         }
         if (index >= 36) {
@@ -175,7 +169,7 @@ public class Vault {
                 if (!slot.peek().isPresent()) {
                     InventoryTransactionResult result = slot.set(item);
                     if (result.getType().equals(InventoryTransactionResult.Type.SUCCESS)) {
-                        SafeTrade.EVENT_BUS.post(new TransactionEvent.Item.Add.Success(this, item));
+                        Bukkit.getPluginManager().callEvent(new ItemAddTransactionSuccessEvent(this, item));
                         return true;
                     }
                 }
@@ -185,7 +179,7 @@ public class Vault {
             }
         }
 
-        SafeTrade.EVENT_BUS.post(new TransactionEvent.Item.Add.Fail(this, item));
+        Bukkit.getPluginManager().callEvent(new ItemAddTransactionFailEvent(this, item));
         return false;
     }
 
@@ -196,7 +190,7 @@ public class Vault {
      * @return True if the item was successfully removed from the inventory, false if not
      */
     public boolean removeItem(ItemStack item) {
-        if (SafeTrade.EVENT_BUS.post(new TransactionEvent.Item.Remove.Pre(this, item))) {
+        if (BukkitEventManagerUtils.post(new ItemRemovePreTransactionEvent(this, item))) {
             return false;
         }
         Iterator<Inventory> iter = itemStorage.slots().iterator();
@@ -209,12 +203,12 @@ public class Vault {
             }
             if (slot.peek().isPresent() && slot.contains(item)) {
                 slot.poll();
-                SafeTrade.EVENT_BUS.post(new TransactionEvent.Item.Remove.Success(this, item));
+                Bukkit.getPluginManager().callEvent(new ItemRemoveTransactionSuccessEvent(this, item));
                 return true;
             }
         }
 
-        SafeTrade.EVENT_BUS.post(new TransactionEvent.Item.Remove.Fail(this, item));
+        Bukkit.getPluginManager().callEvent(new ItemRemoveTransactionFailEvent(this, item));
         return false;
     }
 
@@ -237,12 +231,12 @@ public class Vault {
             if (slot.getProperty(SlotIndex.class, "slotindex").get().getValue() == index) {
                 if (slot.peek().isPresent()) {
                     ItemStack item = slot.peek().get();
-                    if (SafeTrade.EVENT_BUS.post(new TransactionEvent.Item.Remove.Pre(this, item))) {
+                    if (BukkitEventManagerUtils.post(new ItemRemovePreTransactionEvent(this, item))) {
                         return false;
                     }
                     else {
                         slot.poll();
-                        SafeTrade.EVENT_BUS.post(new TransactionEvent.Item.Remove.Success(this, item));
+                        Bukkit.getPluginManager().callEvent(new ItemRemoveTransactionSuccessEvent(this, item));
                     }
                 }
                 break;
@@ -314,13 +308,13 @@ public class Vault {
     }
 
     /**
-     * Attempts to add an {@link EntityPixelmon} to the pokemon inventory.
+     * Attempts to add an {@link PixelmonEntity} to the pokemon inventory.
      *
      * @param pokemon
      * @return True if the Pokemon was successfully added to the inventory, false if not
      */
     public boolean addPokemon(Pokemon pokemon) {
-        if (SafeTrade.EVENT_BUS.post(new TransactionEvent.Pokemon.Add.Pre(this, pokemon))) {
+        if (BukkitEventManagerUtils.post(new PokemonAddPreTransactionEvent(this, pokemon))) {
             return false;
         }
         ItemStack item = ItemUtils.Pokemon.getPokemonIcon(pokemon);
@@ -336,17 +330,17 @@ public class Vault {
             if (!slot.peek().isPresent()) {
                 slot.set(item);
                 entityStorage.put(ind, pokemon);
-                SafeTrade.EVENT_BUS.post(new TransactionEvent.Pokemon.Add.Success(this, pokemon));
+                Bukkit.getPluginManager().callEvent(new PokemonAddTransactionSuccessEvent(this, pokemon));
                 return true;
             }
         }
 
-        SafeTrade.EVENT_BUS.post(new TransactionEvent.Pokemon.Add.Fail(this, pokemon));
+        Bukkit.getPluginManager().callEvent(new PokemonAddTransactionFailEvent(this, pokemon));
         return false;
     }
 
     /**
-     * Attempts to add an {@link EntityPixelmon} to a specific slot in the pokemon inventory.
+     * Attempts to add an {@link PixelmonEntity} to a specific slot in the pokemon inventory.
      *
      * <p>The index must not be greater than 35.</p>
      *
@@ -355,7 +349,7 @@ public class Vault {
      * @return True if the Pokemon was successfully added to the inventory, false if not
      */
     public boolean addPokemon(Pokemon pokemon, int index) {
-        if (SafeTrade.EVENT_BUS.post(new TransactionEvent.Pokemon.Add.Pre(this, pokemon))) {
+        if (BukkitEventManagerUtils.post(new PokemonAddPreTransactionEvent(this, pokemon))) {
             return false;
         }
         ItemStack item = ItemUtils.Pokemon.getPokemonIcon(pokemon);
@@ -372,14 +366,14 @@ public class Vault {
                 if (!slot.peek().isPresent()) {
                     slot.set(item);
                     entityStorage.put(ind, pokemon);
-                    SafeTrade.EVENT_BUS.post(new TransactionEvent.Pokemon.Add.Success(this, pokemon));
+                    Bukkit.getPluginManager().callEvent(new PokemonAddTransactionSuccessEvent(this, pokemon));
                     return true;
                 }
                 break;
             }
         }
 
-        SafeTrade.EVENT_BUS.post(new TransactionEvent.Pokemon.Add.Fail(this, pokemon));
+        Bukkit.getPluginManager().callEvent(new PokemonAddTransactionFailEvent(this, pokemon));
         return false;
     }
 
@@ -400,13 +394,13 @@ public class Vault {
     }
 
     /**
-     * Removes an {@link EntityPixelmon} from the pokemon inventory.
+     * Removes an {@link PixelmonEntity} from the pokemon inventory.
      *
      * @param pokemon The pokemon
      * @return True if the Pokemon was successfully removed from the inventory, false if not
      */
     public boolean removePokemon(Pokemon pokemon) {
-        if (SafeTrade.EVENT_BUS.post(new TransactionEvent.Pokemon.Remove.Pre(this, pokemon))) {
+        if (BukkitEventManagerUtils.post(new PokemonRemovePreTransactionEvent(this, pokemon))) {
             return false;
         }
         ItemStack item = ItemUtils.Pokemon.getPokemonIcon(pokemon);
@@ -422,18 +416,18 @@ public class Vault {
                 if (slot.peek().get().equalTo(item)) {
                     slot.poll();
                     entityStorage.remove(ind);
-                    SafeTrade.EVENT_BUS.post(new TransactionEvent.Pokemon.Remove.Success(this, pokemon));
+                    Bukkit.getPluginManager().callEvent(new PokemonRemoveTransactionSuccessEvent(this, pokemon));
                     return true;
                 }
             }
         }
 
-        SafeTrade.EVENT_BUS.post(new TransactionEvent.Pokemon.Remove.Fail(this, pokemon));
+        Bukkit.getPluginManager().callEvent(new PokemonRemoveTransactionFailEvent(this, pokemon));
         return false;
     }
 
     /**
-     * Removes an {@link EntityPixelmon} at a specific index from the pokemon inventory.
+     * Removes an {@link PixelmonEntity} at a specific index from the pokemon inventory.
      *
      * <p>The index must not be greater than 35.</p>
      *
@@ -452,21 +446,21 @@ public class Vault {
             if (ind == index) {
                 if (slot.peek().isPresent() && entityStorage.containsKey(ind)) {
                     Pokemon pokemon = entityStorage.get(ind);
-                    if (SafeTrade.EVENT_BUS.post(new TransactionEvent.Pokemon.Remove.Pre(this, pokemon))) {
+                    if (BukkitEventManagerUtils.post(new PokemonRemovePreTransactionEvent(this, pokemon))) {
                         return false;
                     }
                     slot.poll();
                     entityStorage.remove(ind);
-                    SafeTrade.EVENT_BUS.post(new TransactionEvent.Pokemon.Remove.Success(this, pokemon));
+                    Bukkit.getPluginManager().callEvent(new PokemonRemoveTransactionSuccessEvent(this, pokemon));
                     return true;
                 }
                 else if (entityStorage.containsKey(ind)) {
                     Pokemon pokemon = entityStorage.get(ind);
-                    if (SafeTrade.EVENT_BUS.post(new TransactionEvent.Pokemon.Remove.Pre(this, pokemon))) {
+                    if (BukkitEventManagerUtils.post(new PokemonRemovePreTransactionEvent(this, pokemon))) {
                         return false;
                     }
                     entityStorage.remove(ind);
-                    SafeTrade.EVENT_BUS.post(new TransactionEvent.Pokemon.Remove.Success(this, pokemon));
+                    Bukkit.getPluginManager().callEvent(new PokemonRemoveTransactionSuccessEvent(this, pokemon));
                     return true;
                 }
                 break;
@@ -544,12 +538,12 @@ public class Vault {
     }
 
     /**
-     * Gets all the {@link ItemStackSnapshot}s in the vault.
+     * Gets all the {@link ReadWriteNBT}s in the vault.
      *
      * @return A list of items
      */
-    public List<ItemStackSnapshot> getAllItems() {
-        List<ItemStackSnapshot> items = new ArrayList<>();
+    public List<ReadWriteNBT> getAllItems() {
+        List<ReadWriteNBT> items = new ArrayList<>();
 
         itemStorage.slots().forEach(slot -> {
             int ind = slot.getProperty(SlotIndex.class, "slotindex").get().getValue();
@@ -577,7 +571,7 @@ public class Vault {
         itemStorage.clear();
         pokemonStorage.clear();
         entityStorage.clear();
-        account.resetBalance(SafeTrade.getEcoService().getDefaultCurrency(), Cause.of(EventContext.empty(), SafeTrade.getPlugin()));
+        account.resetBalance(SafeTrade.getEcoService().getDefaultCurrency());
     }
 
     /**
@@ -591,16 +585,16 @@ public class Vault {
         for (int i = 0; i <= 100; i++) {
             Optional<Account> optAcc = SafeTrade.getEcoService().getOrCreateAccount(UUID.randomUUID().toString());
             if (optAcc.isPresent()) {
-                optAcc.get().resetBalances(Cause.of(EventContext.empty(), this));
+                optAcc.get().resetBalances();
                 return optAcc.get();
             }
         }
-        Sponge.getScheduler().createTaskBuilder().execute(() -> {
-            side.parentTrade.sendChannelMessage(Text.of(TextColors.RED, "Account creation failed."));
-            side.parentTrade.sendChannelMessage(Text.of(TextColors.RED, "Force ending trade to prevent further errors."));
-            side.parentTrade.sendChannelMessage(Text.of(TextColors.RED, "If this keeps happening, please report it to an administrator."));
+        Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), () -> {
+            side.parentTrade.sendChannelMessage(Text.of(ChatColor.RED, "Account creation failed."));
+            side.parentTrade.sendChannelMessage(Text.of(ChatColor.RED, "Force ending trade to prevent further errors."));
+            side.parentTrade.sendChannelMessage(Text.of(ChatColor.RED, "If this keeps happening, please report it to an administrator."));
             side.parentTrade.forceEnd();
-        }).delayTicks(1).submit(SafeTrade.getPlugin());
+        });
 
         return null;
     }
@@ -613,7 +607,7 @@ public class Vault {
                 slot.set(ItemUtils.Other.getBackButton());
             }
             else if (ind >= 36 && ind <= 53) {
-                slot.set(ItemUtils.Other.getFiller(DyeColors.CYAN));
+                slot.set(ItemUtils.Other.getFiller(DyeColor.CYAN));
             }
         });
     }
@@ -629,68 +623,66 @@ public class Vault {
                 slot.set(ItemUtils.Pokemon.getPC());
             }
             else if ((ind >= 36 && ind <= 53)) {
-                slot.set(ItemUtils.Other.getFiller(DyeColors.CYAN));
+                slot.set(ItemUtils.Other.getFiller(DyeColor.CYAN));
             }
         });
     }
 
-    private void handleItemStorageClick(ClickInventoryEvent event) {
-        event.getCause().first(Player.class).ifPresent(player -> {
-            // Prevents players from clicking if they have a cooldown
-            if (InventoryHelper.hasCooldown(player.getUniqueId())) {
-                event.setCancelled(true);
-                return;
+    private void handleItemStorageClick(InventoryClickEvent event) {
+        Player player = (Player) event.getWhoClicked();
+
+        // Prevents players from clicking if they have a cooldown
+        if (InventoryHelper.hasCooldown(player.getUniqueId())) {
+            event.setCancelled(true);
+            return;
+        }
+        InventoryHelper.addCooldown(player.getUniqueId());
+
+        ItemStack item = event.getCurrentItem();
+        int slot = event.getSlot();
+        Component.text("")
+
+        // The player is clicking out-of-bounds of the storage, and is hence clicking a static item/button
+        if (slot >= 36 && slot <= 53) {
+            event.setCancelled(true);
+            if (item != null && item.equals(ItemUtils.Other.getBackButton())) {
+                Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), () ->
+                        side.changeInventoryForViewer(player, side.parentTrade.getState() == TradeState.WAITING_FOR_CONFIRMATION ? InventoryType.OVERVIEW : InventoryType.MAIN)
+                );
             }
-            InventoryHelper.addCooldown(player.getUniqueId());
+        }
 
-            event.getTransactions().forEach(transaction -> {
-                transaction.getSlot().getProperty(SlotIndex.class, "slotindex").ifPresent(slot -> {
-                    ItemStack item = transaction.getOriginal().createStack();
+        // If player is not the in the side of this vault, or the if the vault is locked, or the trade is not in the trading state, they can't manipulate anything
+        else if (!player.getUniqueId().equals(side.sideOwnerUUID) || locked || side.parentTrade.getState() != TradeState.TRADING) {
+            event.setCancelled(true);
+        }
 
-                    // The player is clicking out-of-bounds of the storage, and is hence clicking a static item/button
-                    if (slot.getValue() >= 36 && slot.getValue() <= 53) {
-                        event.setCancelled(true);
-                        if (item.equalTo(ItemUtils.Other.getBackButton())) {
-                            Sponge.getScheduler().createTaskBuilder().execute(() ->
-                                    side.changeInventoryForViewer(player, side.parentTrade.getState() == TradeState.WAITING_FOR_CONFIRMATION ? InventoryType.OVERVIEW : InventoryType.MAIN)
-                            ).delayTicks(1).submit(SafeTrade.getPlugin());
-                        }
-                    }
-
-                    // If player is not the in the side of this vault, or the if the vault is locked, or the trade is not in the trading state, they can't manipulate anything
-                    else if (!player.getUniqueId().equals(side.sideOwnerUUID) || locked || side.parentTrade.getState() != TradeState.TRADING) {
-                        event.setCancelled(true);
-                    }
-
-                    // The player is removing items from the storage
-                    else if (slot.getValue() <= 35) {
-                        // If true, the player is attempting to remove an item from the vault's item storage
-                        if (itemStorage.contains(transaction.getOriginal().createStack())) {
-                            if (SafeTrade.EVENT_BUS.post(new TransactionEvent.Item.Remove.Pre(side.vault, transaction.getOriginal().createStack()))) {
-                                event.setCancelled(true);
-                            }
-                            else {
-                                Sponge.getScheduler().createTaskBuilder().execute((() -> SafeTrade.EVENT_BUS.post(new TransactionEvent.Item.Remove.Success(this, item)))).delayTicks(1).submit(SafeTrade.getPlugin());
-                            }
-                        }
-                    }
-                    // Else, the player is attempting to add an item to the storage
-                    else {
-                        if (SafeTrade.EVENT_BUS.post(new TransactionEvent.Item.Add.Pre(side.vault, transaction.getOriginal().createStack()))) {
-                            event.setCancelled(true);
-                        }
-                        // Prevents players from adding blacklisted items to trade
-                        if (BlacklistUtils.isBlacklisted(transaction.getOriginal().createStack()) && !player.hasPermission("safetrade.admin.blacklist.bypass.item")) {
-                            event.setCancelled(true);
-                            SafeTrade.sendMessageToPlayer(player, PrefixType.SAFETRADE, Text.of(TextColors.DARK_RED, transaction.getOriginal().getType().getId(), TextColors.RED, " is not allowed to be traded."));
-                        }
-                        else {
-                            Sponge.getScheduler().createTaskBuilder().execute((() -> SafeTrade.EVENT_BUS.post(new TransactionEvent.Item.Add.Success(this, item)))).delayTicks(1).submit(SafeTrade.getPlugin());
-                        }
-                    }
-                });
-            });
-        });
+        // The player is removing items from the storage
+        else if (slot <= 35) {
+            // If true, the player is attempting to remove an item from the vault's item storage
+            if (itemStorage.contains(transaction.getOriginal().createStack())) {
+                if (BukkitEventManagerUtils.post(new ItemRemovePreTransactionEvent(side.vault, transaction.getOriginal().createStack()))) {
+                    event.setCancelled(true);
+                }
+                else {
+                    Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), (() -> Bukkit.getPluginManager().callEvent(new ItemRemoveTransactionSuccessEvent(this, item))));
+                }
+            }
+        }
+        // Else, the player is attempting to add an item to the storage
+        else {
+            if (BukkitEventManagerUtils.post(new ItemAddPreTransactionEvent(side.vault, transaction.getOriginal().createStack()))) {
+                event.setCancelled(true);
+            }
+            // Prevents players from adding blacklisted items to trade
+            if (BlacklistUtils.isBlacklisted(transaction.getOriginal().createStack()) && !player.hasPermission("safetrade.admin.blacklist.bypass.item")) {
+                event.setCancelled(true);
+                SafeTrade.sendMessageToPlayer(player, PrefixType.SAFETRADE, Text.of(ChatColor.DARK_RED, transaction.getOriginal().getType().getId(), ChatColor.RED, " is not allowed to be traded."));
+            }
+            else {
+                Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), (() -> Bukkit.getPluginManager().callEvent(new ItemAddTransactionSuccessEvent(this, item))));
+            }
+        }
     }
 
     private void handlePokemonStorageClick(ClickInventoryEvent event) {
@@ -710,9 +702,9 @@ public class Vault {
                     int index = transaction.getSlot().getProperty(SlotIndex.class, "slotindex").get().getValue();
 
                     if (item.equalTo(ItemUtils.Other.getBackButton())) {
-                        Sponge.getScheduler().createTaskBuilder().execute(() ->
+                        Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), () ->
                                 side.changeInventoryForViewer(player, side.parentTrade.getState() == TradeState.WAITING_FOR_CONFIRMATION ? InventoryType.OVERVIEW : InventoryType.MAIN)
-                        ).delayTicks(1).submit(SafeTrade.getPlugin());
+                        );
                     }
 
                     // If player is not the in the side of this vault, or the if the vault is locked, or they didn't left/right click, nothing will happen.
@@ -721,25 +713,25 @@ public class Vault {
                             && side.parentTrade.getState() == TradeState.TRADING) {
 
                         if (item.equalTo(ItemUtils.Pokemon.getPC())) {
-                            Sponge.getScheduler().createTaskBuilder().execute(() -> side.changeInventory(InventoryType.PC)).delayTicks(1).submit(SafeTrade.getPlugin());
+                            Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), () -> side.changeInventory(InventoryType.PC));
                         }
                         else if (entityStorage.containsKey(index)) {
                             if (event instanceof ClickInventoryEvent.Secondary) {
                                 Pokemon pokemon = entityStorage.get(index);
                                 // Need scheduler to wait for the click to cancel, otherwise the slot won't recognise there's an itemstack
-                                Sponge.getScheduler().createTaskBuilder().execute(() -> {
+                                Bukkit.getScheduler().runTask(SafeTrade.getPlugin(), () -> {
                                     if (removePokemon(index)) {
-                                        if (Pixelmon.storageManager.getParty(player.getUniqueId()).add(pokemon)) {
-                                            SafeTrade.sendMessageToPlayer(player, PrefixType.SAFETRADE, Text.of(TextColors.GREEN, pokemon.getDisplayName() + " has been added to your party/pc"));
+                                        if (StorageProxy.getParty(player.getUniqueId()).add(pokemon)) {
+                                            SafeTrade.sendMessageToPlayer(player, PrefixType.SAFETRADE, Text.of(ChatColor.GREEN, pokemon.getDisplayName() + " has been added to your party/pc"));
                                         }
                                         // uh oh, something went wrong!
                                         else {
                                             Tracker.getOrCreateStorage(player).addPokemon(pokemon);
-                                            SafeTrade.sendMessageToPlayer(player, PrefixType.SAFETRADE, Text.of(TextColors.RED, "Uh oh, something went wrong! Your Pokemon was put in to your SafeTrade storage for safe-keeping. " +
+                                            SafeTrade.sendMessageToPlayer(player, PrefixType.SAFETRADE, Text.of(ChatColor.RED, "Uh oh, something went wrong! Your Pokemon was put in to your SafeTrade storage for safe-keeping. " +
                                                     "Use /safetrade storage."));
                                         }
                                     }
-                                }).delayTicks(1).submit(SafeTrade.getPlugin());
+                                });
                             }
                         }
                     }

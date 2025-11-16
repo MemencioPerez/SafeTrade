@@ -1,18 +1,26 @@
-package io.github.cjcool06.safetrade.api.events.trade;
+package io.github.cjcool06.safetrade.api.events.trade.viewer;
 
 import io.github.cjcool06.safetrade.obj.Trade;
-import net.minecraftforge.fml.common.eventhandler.Cancelable;
-import net.minecraftforge.fml.common.eventhandler.Event;
-import org.spongepowered.api.entity.living.player.Player;
+import org.bukkit.entity.Player;
+import org.bukkit.event.Cancellable;
+import org.bukkit.event.Event;
+import org.bukkit.event.HandlerList;
+import org.jetbrains.annotations.NotNull;
 
 public class ViewerEvent extends Event {
 
+    private static final HandlerList HANDLERS = new HandlerList();
     public final Trade trade;
     public final Player viewer;
 
     private ViewerEvent(Trade trade, Player viewer) {
         this.trade = trade;
         this.viewer = viewer;
+    }
+
+    @Override
+    public @NotNull HandlerList getHandlers() {
+        return HANDLERS;
     }
 
     public static class Add extends ViewerEvent {
@@ -24,10 +32,21 @@ public class ViewerEvent extends Event {
         /**
          * Posted before the viewer is added to the {@link Trade}.
          */
-        @Cancelable
-        public static class Pre extends Add {
+        public static class Pre extends Add implements Cancellable {
+            private boolean cancel = false;
+
             public Pre(Trade trade, Player player) {
                 super(trade, player);
+            }
+
+            @Override
+            public boolean isCancelled() {
+                return cancel;
+            }
+
+            @Override
+            public void setCancelled(boolean cancel) {
+                this.cancel = cancel;
             }
         }
 
@@ -50,10 +69,21 @@ public class ViewerEvent extends Event {
         /**
          * Posted before the viewer is removed from the {@link Trade}.
          */
-        @Cancelable
-        public static class Pre extends Remove {
+        public static class Pre extends Remove implements Cancellable {
+            private boolean cancel = false;
+
             public Pre(Trade trade, Player player) {
                 super(trade, player);
+            }
+
+            @Override
+            public boolean isCancelled() {
+                return cancel;
+            }
+
+            @Override
+            public void setCancelled(boolean cancel) {
+                this.cancel = cancel;
             }
         }
 

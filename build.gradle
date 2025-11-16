@@ -49,10 +49,10 @@ dependencies {
     implementation 'me.lucko:commodore:2.2'
     implementation 'org.jetbrains:annotations:24.0.0'
     implementation 'com.google.inject:guice:7.0.0'
-    shadow "net.kyori:adventure-platform-bukkit:4.4.0"
+    shadow "net.kyori:adventure-platform-bukkit:4.4.1"
     shadow 'org.spongepowered:configurate-hocon:4.0.0'
     shadow 'org.spongepowered:configurate-extra-guice:4.0.0'
-    shadow "net.kyori:adventure-platform-bukkit:4.4.0"
+    shadow "net.kyori:adventure-platform-bukkit:4.4.1"
 }
 
 def targetJavaVersion = 8
